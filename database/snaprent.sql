@@ -7,6 +7,8 @@
 -- Server version: 8.4.3
 -- PHP Version: 8.3.26
 
+
+
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
 SET time_zone = "+00:00";
@@ -21,6 +23,9 @@ SET time_zone = "+00:00";
 -- Database: `snaprent`
 --
 
+DROP DATABASE IF EXISTS snaprent;
+CREATE DATABASE snaprent;
+USE snaprent;
 -- --------------------------------------------------------
 
 --
