@@ -180,7 +180,7 @@ header('Content-Type: text/html; charset=utf-8');
       <div>
         <h5>Quick Links</h5>
         <div class="links">
-          <a href="#">Home</a><a href="#">Cameras</a><a href="#">About Us</a><a href="#">FAQ</a>
+          <a href="#">Home</a><a href="#">Cameras</a><a href="#">About</a><a href="#">Contact</a>
         </div>
       </div>
       <div>
