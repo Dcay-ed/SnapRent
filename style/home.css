@@ -3,7 +3,7 @@
   --bg:#ffffff;
   --slate:#293743;
   --ink:#0f172a;
-  --soft:#e6edf3;
+  --soft:#CFD9E1;
   --card:#ffffff;
   --shadow-lg: 0 18px 48px rgba(0,0,0,.22);
   --shadow: 0 12px 28px rgba(0,0,0,.16);
@@ -437,8 +437,8 @@ a{text-decoration:none;color:inherit}
 
 /* ================= Testimonials ================= */
 .testi {
-  padding: 100px 0 180px; /* lebih tinggi */
-  background: #f0f5f9; /* optional kalau ingin beda background */
+  padding: 100px 0 120px; /* lebih tinggi */
+  background: #CFD9E1; /* optional kalau ingin beda background */
 }
 
 .testi h3 {
@@ -546,8 +546,7 @@ a{text-decoration:none;color:inherit}
 /* ================= Footer ================= */
 .footer {
   background: #293743;
-  color: #fff;
-  margin-top: 26px;
+  color: #CFD9E1;
   padding: 28px 0 0;
 }
 
