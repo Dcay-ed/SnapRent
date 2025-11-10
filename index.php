@@ -13,6 +13,11 @@ header('Content-Type: text/html; charset=utf-8');
 <link rel="stylesheet" href="style/home.css" >
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script>
+window.addEventListener('scroll', () => {
+  document.body.classList.toggle('scrolled', window.scrollY > 10);
+});
+</script>
 
 </head>
 <body>
@@ -21,8 +26,8 @@ header('Content-Type: text/html; charset=utf-8');
 <header class="header">
   <div class="container header-inner">
     <div class="brand">
-      <img src="img/48bcabbb-9ac2-4333-b37c-76ddcd64064b-1.png" alt="SnapRent logo">
-      <div class="title">SnapRent</div>
+      <img src="SnapRent\style\design\logo snaprent.png" alt="SnapRent logo">
+      <div> </div>
     </div>
 
     <nav class="nav">
@@ -99,32 +104,38 @@ header('Content-Type: text/html; charset=utf-8');
     </div>
 
     <div class="carousel" id="carousel">
-      <div class="chev" id="chevLeft">❮</div>
+      <button class="chev" id="chevLeft" aria-label="Previous">❮</button>
 
       <div class="stage" id="stage">
-        <div class="item">
-          <div class="label">
-            <div>Canon EOS R5</div>
-            <div class="price">Rp 150.000/hari</div>
+        <!-- Kiri (kecil) -->
+        <div class="cam">
+          <div class="thumb" aria-hidden="true"></div>
+          <div class="meta">
+            <div class="title">Nama kamera</div>
+            <div class="price">Rp ——— /hari</div>
           </div>
         </div>
 
-        <div class="item big">
-          <div class="label">
-            <div>Sony A7 IV</div>
-            <div class="price">Rp 175.000/hari</div>
+        <!-- Tengah (besar) -->
+        <div class="cam big">
+          <div class="thumb" aria-hidden="true"></div>
+          <div class="meta center">
+            <div class="title">Nama kamera</div>
+            <div class="price">Rp ——— /hari</div>
           </div>
         </div>
 
-        <div class="item">
-          <div class="label">
-            <div>Nikon Z6 II</div>
-            <div class="price">Rp 140.000/hari</div>
+        <!-- Kanan (kecil) -->
+        <div class="cam">
+          <div class="thumb" aria-hidden="true"></div>
+          <div class="meta">
+            <div class="title">Nama kamera</div>
+            <div class="price">Rp ——— /hari</div>
           </div>
         </div>
       </div>
 
-      <div class="chev" id="chevRight">❯</div>
+      <button class="chev" id="chevRight" aria-label="Next">❯</button>
     </div>
   </div>
 </section>

@@ -15,7 +15,18 @@ a{text-decoration:none;color:inherit}
 .container{width:min(1180px,98%);margin-inline:auto;padding:0 12px}
 /* ================= Header ================= */
 .header {
-  background: rgba(41, 55, 67, 0.38);backdrop-filter: blur(18px) saturate(180%); -webkit-backdrop-filter: blur(18px) saturate(180%); box-shadow: 0 4px 18px rgba(0,0,0,0.22); }
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 999;
+
+  background: rgba(41, 55, 67, 0.38);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  box-shadow: 0 4px 18px rgba(0,0,0,0.22);
+  transition: backdrop-filter .25s ease, background .25s ease;
+}
 .header-inner{display:flex;align-items:center;justify-content:space-between;padding:14px 0}
 .brand{display:flex;align-items:center;gap:10px}
 .brand img{width:38px;height:38px;border-radius:50%;object-fit:cover;box-shadow:0 4px 10px rgba(0,0,0,.25)}
@@ -28,12 +39,8 @@ a{text-decoration:none;color:inherit}
 
 /* ================= Hero ================= */
 .hero-wrap {
-  position: relative;
-  padding: 26px 0 18px;
-  overflow: hidden;
-  min-height: 95vh;
-  display: flex;
-  padding-top: 70px;
+  padding-top: 150px;
+  padding-bottom:  100px;/* dari 70px → 120px */
 }
 
 .hero-background {
@@ -133,9 +140,9 @@ a{text-decoration:none;color:inherit}
 
 /* ================= Why ================= */
 .why{
-  min-height: 108vh;
+  min-height: 92vh;
   background: var(--slate);
-  padding: 100px 0 120px;
+  padding: 100px 0 130px;
   display: flex;
   align-items: center;         
 }
@@ -373,16 +380,123 @@ a{text-decoration:none;color:inherit}
   opacity: 0.15;
 }
 
+/* ===== FEATURED (mockup-match) OVERRIDES ===== */
+
+/* Latar section tetap var(--soft) sudah sesuai mockup */
+.featured { padding: 56px 0 86px; }
+
+.carousel {
+  display: grid;
+  grid-template-columns: 64px 1fr 64px; /* panah kiri – stage – panah kanan */
+  align-items: center;
+  gap: 18px;
+}
+
+.chev {
+  width: 44px; height: 44px; border-radius: 14px;
+  display: grid; place-items: center;
+  background: #ffffff; box-shadow: var(--shadow-sm);
+  cursor: pointer; user-select: none;
+  transition: transform .25s ease, box-shadow .25s ease;
+}
+.chev:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+
+.stage {
+  /* tiga kolom dengan item tengah sebagai fokus */
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  align-items: end;
+  gap: clamp(16px, 3vw, 28px);
+  transition: transform .45s cubic-bezier(.22,1,.36,1);
+}
+
+/* Kartu kamera */
+.cam {
+  --thumb: clamp(120px, 22vw, 220px);   /* ukuran dasar sisi */
+  --radius: 18px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 14px;
+  transform: translateY(8px) scale(.96);
+  opacity: .85;
+  transition: transform .45s cubic-bezier(.22,1,.36,1), opacity .45s ease, box-shadow .3s ease;
+}
+
+/* Kotak foto (square) */
+.cam .thumb{
+  width: var(--thumb);
+  aspect-ratio: 1 / 1;
+  border-radius: var(--radius);
+  background: #cfd8df;         /* placeholder */
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  position: relative;
+}
+/* Kalau mau isi gambar, cukup gunakan:
+   .cam:nth-child(1) .thumb { background: url('img/xxx.jpg') center/cover no-repeat; }  */
+
+/* Teks bawah gambar */
+.cam .meta{
+  text-align: center;
+  color: #2b3b49;
+  font-size: 14px;
+  line-height: 1.35;
+}
+.cam .meta .title{ font-weight: 700; }
+.cam .meta .price{
+  margin-top: 4px;
+  font-size: 12px;
+  font-style: italic;
+  color: #6b7b8c;
+}
+
+/* Item tengah (besar) sesuai mockup */
+.cam.big{
+  --thumb: clamp(220px, 34vw, 420px);   /* jauh lebih besar */
+  transform: translateY(0) scale(1);
+  opacity: 1;
+  grid-column: 2;                       /* selalu di tengah grid */
+}
+.cam.big .thumb{ box-shadow: var(--shadow); }
+.cam.big .meta{ font-size: 15px; }
+.cam.big .meta .title{ font-size: clamp(14px, 2.2vw, 16px); }
+
+/* Nuansa animasi saat berganti slide:
+   kecil -> sedikit turun & mengecil, tengah -> full scale */
+.stage.sliding .cam{ transition-duration: .52s; }
+
+/* Mobile tweaks */
+@media (max-width: 768px){
+  .carousel{ grid-template-columns: 44px 1fr 44px; }
+  .stage{ gap: 16px; }
+  .cam{ gap: 10px; }
+}
+@media (max-width: 480px){
+  .chev{ display:none; } /* mockup mobile tanpa panah */
+  .stage{
+    grid-template-columns: 1fr;
+    gap: 12px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    padding-bottom: 8px;
+  }
+  .cam{ scroll-snap-align: center; }
+  .cam.big{ grid-column: 1; }
+}
+
 /* ================= Brands ================= */
 .brand-band{
   background:#293743;
-  min-height:35vh;
+  min-height:10vh;
   padding:clamp(48px,8vh,96px) 0;
   display:flex;               
   align-items:center;
 }
 .brand-band .container{
-  width:min(1180px,96%);
+  width:min(1000px,96%);
   margin-inline:auto;
 }
 
@@ -390,7 +504,7 @@ a{text-decoration:none;color:inherit}
   text-align:center;
   color:#fff;
   position: relative; top: -30px;
-  margin: 10px 0 45px !important;   /* ← jarak judul ke brand-row */
+  margin: 10px 0 25px !important;   /* ← jarak judul ke brand-row */
   font-weight:800;
   letter-spacing:.6px;
   font-size:clamp(18px,2.2vw,26px);
@@ -792,4 +906,9 @@ a{text-decoration:none;color:inherit}
   .item.big {
     min-width: 300px;
   }
+}
+
+body.scrolled .header {
+  background: rgba(41,55,67,0.55);
+  backdrop-filter: blur(22px) saturate(200%);
 }
