@@ -1,0 +1,723 @@
+/* ================= Design Tokens ================= */
+:root{
+  --bg:#ffffff;
+  --slate:#293743;
+  --ink:#0f172a;
+  --soft:#CFD9E1;
+  --card:#ffffff;
+  --shadow-lg: 0 18px 48px rgba(0,0,0,.22);
+  --shadow: 0 12px 28px rgba(0,0,0,.16);
+  --shadow-sm: 0 8px 18px rgba(0,0,0,.12);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Poppins",system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+a{text-decoration:none;color:inherit}
+.container{width:min(1180px,98%);margin-inline:auto;padding:0 12px}
+
+/* ====== Ikon util ====== */
+.icon{width:20px;height:20px;display:inline-block;vertical-align:middle}
+.icon-16{width:16px;height:16px}
+.icon-28{width:28px;height:28px}
+
+/* Header Styles */
+.header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 999;
+  background: rgba(41, 55, 67, 0.38);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  box-shadow: 0 4px 18px rgba(0,0,0,0.22);
+  transition: backdrop-filter .25s ease, background .25s ease;
+}
+/* === SnapRent logo: besar tanpa mengubah tinggi header === */
+.header .brand{
+  --logoSize: 38px;      /* ukuran box asli (jangan diubah) */
+  --logoScale: 2.8;      /* ubah angka ini untuk besarnya logo (1 = normal) */
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;             /* jarak ke nav tetap rapi */
+}
+
+.header .brand img{
+  width: var(--logoSize);
+  height: var(--logoSize);
+  border-radius: 50%;
+  object-fit: cover;
+  transform: scale(var(--logoScale));
+  transform-origin: left center;   /* membesar ke kanan, tidak mendorong header */
+  will-change: transform;
+}
+
+/* Hero Section Styles */
+.hero {
+    background: url('img/hero-bg.jpg') no-repeat center center;
+    background-size: cover;
+    padding: 80px 0;
+    color: white;
+    text-align: center;
+    border-radius: 20px 20px 0 0;
+    margin: 0 20px;
+}
+
+.hero .container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 40px;
+}
+
+.hero-content h1 {
+    font-size: 4rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+}
+
+.hero-content h2 {
+    font-size: 2rem;
+    font-weight: 400;
+    margin-bottom: 15px;
+}
+
+.hero-content p {
+    font-size: 1rem;
+    margin-bottom: 30px;
+    opacity: 0.9;
+}
+
+.btn-rent-now {
+    display: inline-block;
+    background-color: #293743;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 30px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: background-color 0.3s;
+}
+
+.btn-rent-now:hover {
+    background-color: #1e2a33;
+}
+
+.hero-images {
+    display: flex;
+    gap: 15px;
+}
+
+.hero-images img {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 10px;
+    border: 3px solid white;
+}
+
+/* Featured Equipment Styles */
+.featured-equipment {
+    padding: 60px 0;
+    background-color: #e1e8ed;
+}
+
+.featured-equipment h2 {
+    text-align: center;
+    font-size: 2rem;
+    font-weight: 600;
+    color: #284466;
+    margin-bottom: 40px;
+}
+
+.category-filter {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+}
+
+.category-btn {
+    padding: 8px 20px;
+    border: 2px solid #293743;
+    background-color: white;
+    color: #293743;
+    border-radius: 30px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.3s;
+}
+
+.category-btn.active {
+    background-color: #293743;
+    color: white;
+}
+
+.search-box {
+    display: flex;
+    border: 2px solid #293743;
+    border-radius: 30px;
+    overflow: hidden;
+    max-width: 300px;
+}
+
+.search-box input {
+    padding: 8px 15px;
+    border: none;
+    outline: none;
+    font-size: 14px;
+    flex: 1;
+}
+
+.search-box button {
+    background-color: #293743;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    cursor: pointer;
+}
+
+.search-box button img {
+    width: 16px;
+    height: 16px;
+}
+
+.product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 30px;
+    margin-top: 30px;
+}
+
+.product-card {
+    background-color: white;
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    transition: transform 0.3s;
+}
+
+.product-card:hover {
+    transform: translateY(-5px);
+}
+
+.product-image {
+    width: 100%;
+    height: 200px;
+    overflow: hidden;
+}
+
+.product-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.product-info {
+    padding: 20px;
+    text-align: center;
+}
+
+.product-info h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.price {
+    font-size: 0.9rem;
+    color: #666;
+    font-style: italic;
+    margin-bottom: 15px;
+}
+
+.btn-rent {
+    display: inline-block;
+    background-color: #293743;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: background-color 0.3s;
+}
+
+.btn-rent:hover {
+    background-color: #1e2a33;
+}
+
+/* Footer Styles */
+.footer {
+    background-color: #293743;
+    color: white;
+    padding: 50px 0 20px;
+    margin-top: 60px;
+}
+
+.footer-columns {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 40px;
+    margin-bottom: 40px;
+}
+
+.footer-column h3 {
+    font-size: 1.2rem;
+    margin-bottom: 20px;
+    font-weight: 600;
+}
+
+.footer-column p {
+    margin-bottom: 20px;
+    font-size: 0.9rem;
+}
+
+.footer-column ul {
+    list-style: none;
+}
+
+.footer-column li {
+    margin-bottom: 10px;
+    font-size: 0.9rem;
+}
+
+.footer-column a {
+    color: #ddd;
+    text-decoration: none;
+    transition: color 0.3s;
+}
+
+.footer-column a:hover {
+    color: white;
+}
+
+.footer-column li img {
+    width: 16px;
+    height: 16px;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+.footer-bottom {
+    border-top: 1px solid #444;
+    padding-top: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.footer-bottom p {
+    font-size: 0.8rem;
+}
+
+.footer-links {
+    display: flex;
+    gap: 20px;
+}
+
+.footer-links a {
+    color: #ddd;
+    text-decoration: none;
+    font-size: 0.8rem;
+}
+
+.footer-links a:hover {
+    color: white;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .header .container {
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .nav-menu ul {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .hero {
+        padding: 40px 20px;
+        margin: 0 10px;
+    }
+
+    .hero .container {
+        flex-direction: column;
+    }
+
+    .hero-content h1 {
+        font-size: 2.5rem;
+    }
+
+    .hero-content h2 {
+        font-size: 1.5rem;
+    }
+
+    .hero-images {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .hero-images img {
+        width: 100px;
+        height: 100px;
+    }
+
+    .featured-equipment {
+        padding: 40px 20px;
+    }
+
+    .product-grid {
+        gap: 20px;
+    }
+
+    .footer-columns {
+        gap: 20px;
+    }
+
+    .footer-bottom {
+        flex-direction: column;
+        text-align: center;
+    }
+}
+
+/* Hero Section Styles */
+.hero {
+    background: url('img/hero-bg.jpg') no-repeat center center;
+    background-size: cover;
+    padding: 80px 0;
+    color: white;
+    text-align: center;
+    border-radius: 20px 20px 0 0;
+    margin: 0 20px;
+}
+
+.hero .container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 40px;
+}
+
+.hero-content h1 {
+    font-size: 4rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+}
+
+.hero-content h2 {
+    font-size: 2rem;
+    font-weight: 400;
+    margin-bottom: 15px;
+}
+
+.hero-content p {
+    font-size: 1rem;
+    margin-bottom: 30px;
+    opacity: 0.9;
+}
+
+.btn-rent-now {
+    display: inline-block;
+    background-color: #293743;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 30px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: background-color 0.3s;
+}
+
+.btn-rent-now:hover {
+    background-color: #1e2a33;
+}
+
+.hero-images {
+    display: flex;
+    gap: 15px;
+}
+
+.hero-images img {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 10px;
+    border: 3px solid white;
+}
+
+/* Featured Equipment Styles */
+.featured-equipment {
+    padding: 60px 0;
+    background-color: #e1e8ed;
+}
+
+.featured-equipment h2 {
+    text-align: center;
+    font-size: 2rem;
+    font-weight: 600;
+    color: #284466;
+    margin-bottom: 40px;
+}
+
+.category-filter {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+}
+
+.category-btn {
+    padding: 8px 20px;
+    border: 2px solid #293743;
+    background-color: white;
+    color: #293743;
+    border-radius: 30px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.3s;
+}
+
+.category-btn.active {
+    background-color: #293743;
+    color: white;
+}
+
+.search-box {
+    display: flex;
+    border: 2px solid #293743;
+    border-radius: 30px;
+    overflow: hidden;
+    max-width: 300px;
+}
+
+.search-box input {
+    padding: 8px 15px;
+    border: none;
+    outline: none;
+    font-size: 14px;
+    flex: 1;
+}
+
+.search-box button {
+    background-color: #293743;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    cursor: pointer;
+}
+
+.search-box button img {
+    width: 16px;
+    height: 16px;
+}
+
+.product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 30px;
+    margin-top: 30px;
+}
+
+.product-card {
+    background-color: white;
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    transition: transform 0.3s;
+}
+
+.product-card:hover {
+    transform: translateY(-5px);
+}
+
+.product-image {
+    width: 100%;
+    height: 200px;
+    overflow: hidden;
+}
+
+.product-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.product-info {
+    padding: 20px;
+    text-align: center;
+}
+
+.product-info h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.price {
+    font-size: 0.9rem;
+    color: #666;
+    font-style: italic;
+    margin-bottom: 15px;
+}
+
+.btn-rent {
+    display: inline-block;
+    background-color: #293743;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: background-color 0.3s;
+}
+
+.btn-rent:hover {
+    background-color: #1e2a33;
+}
+
+/* Footer Styles */
+.footer {
+    background-color: #293743;
+    color: white;
+    padding: 50px 0 20px;
+    margin-top: 60px;
+}
+
+.footer-columns {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 40px;
+    margin-bottom: 40px;
+}
+
+.footer-column h3 {
+    font-size: 1.2rem;
+    margin-bottom: 20px;
+    font-weight: 600;
+}
+
+.footer-column p {
+    margin-bottom: 20px;
+    font-size: 0.9rem;
+}
+
+.footer-column ul {
+    list-style: none;
+}
+
+.footer-column li {
+    margin-bottom: 10px;
+    font-size: 0.9rem;
+}
+
+.footer-column a {
+    color: #ddd;
+    text-decoration: none;
+    transition: color 0.3s;
+}
+
+.footer-column a:hover {
+    color: white;
+}
+
+.footer-column li img {
+    width: 16px;
+    height: 16px;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+.footer-bottom {
+    border-top: 1px solid #444;
+    padding-top: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.footer-bottom p {
+    font-size: 0.8rem;
+}
+
+.footer-links {
+    display: flex;
+    gap: 20px;
+}
+
+.footer-links a {
+    color: #ddd;
+    text-decoration: none;
+    font-size: 0.8rem;
+}
+
+.footer-links a:hover {
+    color: white;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .header .container {
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .nav-menu ul {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .hero {
+        padding: 40px 20px;
+        margin: 0 10px;
+    }
+
+    .hero .container {
+        flex-direction: column;
+    }
+
+    .hero-content h1 {
+        font-size: 2.5rem;
+    }
+
+    .hero-content h2 {
+        font-size: 1.5rem;
+    }
+
+    .hero-images {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .hero-images img {
+        width: 100px;
+        height: 100px;
+    }
+
+    .featured-equipment {
+        padding: 40px 20px;
+    }
+
+    .product-grid {
+        gap: 20px;
+    }
+
+    .footer-columns {
+        gap: 20px;
+    }
+
+    .footer-bottom {
+        flex-direction: column;
+        text-align: center;
+    }
+}

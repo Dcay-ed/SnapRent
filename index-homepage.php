@@ -10,7 +10,7 @@ header('Content-Type: text/html; charset=utf-8');
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>SnapRent</title>
 
-<link rel="stylesheet" href="style/home.css" >
+<link rel="stylesheet" href="style/home-homepage.css" >
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script>
@@ -27,35 +27,29 @@ window.addEventListener('scroll', () => {
   <div class="container header-inner">
     <div class="brand">
       <img src="style/design/logo snaprent.png" alt="SnapRent logo">
-      <div></div><!-- spacer untuk scaling logo -->
     </div>
 
-    <!-- NAV + AUTH digabung supaya posisinya rapi -->
-    <div class="mid">
-      <nav class="nav">
-        <a class="active" href="#">Home</a>
-        <a href="#">Cameras</a>
-        <a href="#">About Us</a>
-        <a href="#">FAQ</a>
-      </nav>
-
-      <div class="auth">  
-        <a href="admin/login.php" class="btn btn-ghost">Login</a>
-        <a href="admin/register.php" class="btn btn-light">Sign In</a>
-      </div>
-    </div>
+    <nav class="nav">
+      <a class="active" href="#">Home</a>
+      <a href="camera.php">Cameras</a>
+      <a href="#">About Us</a>
+      <a href="#">FAQ</a>
+    </nav>
 
     <div class="actions">
+      <!-- Account -->
       <button class="icon-btn" title="Account" aria-label="Account">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
           <path fill="currentColor" d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Zm0 2c-4.42 0-8 2.24-8 5v1a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-1c0-2.76-3.58-5-8-5Z"/>
         </svg>
       </button>
+      <!-- Notifications -->
       <button class="icon-btn" title="Notifications" aria-label="Notifications">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
           <path fill="currentColor" d="M12 22a2 2 0 0 0 2-2H10a2 2 0 0 0 2 2Zm7-6V11a7 7 0 1 0-14 0v5L3 18v2h18v-2Z"/>
         </svg>
       </button>
+      <!-- Cart -->
       <button class="icon-btn" title="Cart" aria-label="Cart">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
           <path fill="currentColor" d="M7 18a2 2 0 1 0 2 2 2 2 0 0 0-2-2Zm10 0a2 2 0 1 0 2 2 2 2 0 0 0-2-2ZM7.2 14h9.86a1 1 0 0 0 .97-.76l1.73-6.9H6.42L6 4H3v2h2l2.2 8Z"/>
@@ -299,7 +293,7 @@ window.addEventListener('scroll', () => {
       <div>
         <h5>Quick Links</h5>
         <div class="links">
-          <a href="#">Home</a><a href="#">Cameras</a><a href="#">About</a><a href="#">Contact</a>
+          <a href="#">Home</a><a href="camera.php">Cameras</a><a href="#">About</a><a href="#">Contact</a>
         </div>
       </div>
       <div>
