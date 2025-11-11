@@ -15,10 +15,10 @@ if ($isLoggedIn) {
 
 <section class="hero-wrap">
 
-  <div class="hero-background" style="background-image: url('images/BGCamera.jpg');"></div>
+  <div class="hero-background" style="background-image: url('auth/images/BGCamera.jpg');"></div>
   
   <div class="container">
-    <div class="hero-foreground" style="background-image: url('images/BGCamera.jpg');">
+    <div class="hero-foreground" style="background-image: url('auth/images/BGCamera.jpg');">
       <div class="hero-content">
         <h1>SnapRent</h1>
         <div class="kicker">Rent Your Perfect Camera</div>
@@ -35,16 +35,16 @@ if ($isLoggedIn) {
 
       <div class="thumb-strip">
         <div class="thumb-item">
-          <img src="images/BGCamera.jpg" alt="Camera 1">
+          <img src="auth/images/BGCamera.jpg" alt="Camera 1">
         </div>
         <div class="thumb-item">
-          <img src="images/BGCamera.jpg" alt="Camera 2">
+          <img src="auth/images/BGCamera.jpg" alt="Camera 2">
         </div>
         <div class="thumb-item">
-          <img src="images/BGCamera.jpg" alt="Camera 3">
+          <img src="auth/images/BGCamera.jpg" alt="Camera 3">
         </div>
         <div class="thumb-item">
-          <img src="images/BGCamera.jpg" alt="Camera 4">
+          <img src="auth/images/BGCamera.jpg" alt="Camera 4">
         </div>
       </div>
     </div>

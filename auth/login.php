@@ -34,7 +34,7 @@ $ROUTES = [
   'OWNER'    => '../Dashboard/index.php',
   'STAFF'    => '../Dashboard/index.php',
   'CUSTOMER' => '../index.php',
-  'COSTUMER' => '../Customer/index.php',
+  'COSTUMER' => '../index.php',
 ];
 $DEFAULT_ROUTE = '../Dashboard/index.php';
 
@@ -145,7 +145,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') !== 'forgo
             // Redirect berdasarkan role SETELAH login berhasil
             $role = strtoupper((string)$u['role']);
             if ($role === 'CUSTOMER' || $role === 'COSTUMER') {
-              header('Location: ../Customer/index.php');
+              header('Location: ../index.php');
             } else {
               header('Location: ../Dashboard/index.php');
             }
