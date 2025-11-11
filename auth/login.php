@@ -9,29 +9,34 @@ if (!function_exists('e')) {
 }
 if (session_status() === PHP_SESSION_NONE) { session_start(); }
 
+// ---------- Helper functions ----------
+if (!function_exists('has_column')) {
+  function has_column(PDO $pdo, string $table, string $column): bool {
+    $sql = "SELECT COUNT(*) FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?";
+    $st = $pdo->prepare($sql);
+    $st->execute([$table, $column]);
+    return (int)$st->fetchColumn() > 0;
+  }
+}
+
+if (!function_exists('role_redirect')) {
+  function role_redirect(string $role, array $routes, string $fallback){
+    $R = strtoupper($role);
+    $to = $routes[$R] ?? $fallback;
+    header("Location: $to");
+    exit;
+  }
+}
+
 // ---------- Redirect map ----------
 $ROUTES = [
   'OWNER'    => '../Dashboard/index.php',
   'STAFF'    => '../Dashboard/index.php',
-  'CUSTOMER' => '../Customer/index.php',
+  'CUSTOMER' => '../index.php',
   'COSTUMER' => '../Customer/index.php',
 ];
 $DEFAULT_ROUTE = '../Dashboard/index.php';
-
-// ---------- Helpers ----------
-function has_column(PDO $pdo, string $table, string $column): bool {
-  $sql = "SELECT COUNT(*) FROM information_schema.COLUMNS
-          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?";
-  $st = $pdo->prepare($sql);
-  $st->execute([$table, $column]);
-  return (int)$st->fetchColumn() > 0;
-}
-function role_redirect(string $role, array $routes, string $fallback){
-  $R = strtoupper($role);
-  $to = $routes[$R] ?? $fallback;
-  header("Location: $to");
-  exit;
-}
 
 // ---------- Auto-redirect jika sudah login ----------
 if (isset($_SESSION['uid']) && function_exists('currentUser') && currentUser($pdo)) {
@@ -136,7 +141,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') !== 'forgo
             $_SESSION['role']  = strtoupper((string)$u['role']);
             $_SESSION['uname'] = (string)($u['username'] ?? '');
             $_SESSION['email'] = (string)($u['email'] ?? '');
-            role_redirect($_SESSION['role'], $ROUTES, $DEFAULT_ROUTE);
+            
+            // Redirect berdasarkan role SETELAH login berhasil
+            $role = strtoupper((string)$u['role']);
+            if ($role === 'CUSTOMER' || $role === 'COSTUMER') {
+              header('Location: ../Customer/index.php');
+            } else {
+              header('Location: ../Dashboard/index.php');
+            }
+            exit;
           } else {
             $error = 'Wrong password.';
           }

@@ -4,7 +4,7 @@
 // Start output buffering FIRST before any output
 ob_start();
 
-require __DIR__. '/../admin/auth.php';
+require __DIR__. '/../auth/auth.php';
 require_login($pdo);
 
 // Pastikan upload dir ada

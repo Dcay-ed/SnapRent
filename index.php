@@ -1,90 +1,51 @@
 <?php
-include('database/db.php');
-// home.php — SnapRent landing (mockup-matched + autoplay carousel)
-header('Content-Type: text/html; charset=utf-8');
+require __DIR__ . '/database/db.php';
+$title = 'SnapRent';
+
+session_start();
+$isLoggedIn = isset($_SESSION['uid']); 
+
+if ($isLoggedIn) {
+    require __DIR__ . '/partials/header.php'; 
+} else {
+    require __DIR__ . '/partials/home-header.php'; 
+}
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>SnapRent</title>
 
-<link rel="stylesheet" href="style/home.css" >
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<script>
-window.addEventListener('scroll', () => {
-  document.body.classList.toggle('scrolled', window.scrollY > 10);
-});
-</script>
-</head>
 
-<body>
-
-<!-- ================= Header ================= -->
-<header class="header">
-  <div class="container header-inner">
-    <div class="brand">
-      <img src="style/design/logo snaprent.png" alt="SnapRent logo">
-      <div></div><!-- spacer untuk scaling logo -->
-    </div>
-
-    <!-- NAV + AUTH digabung supaya posisinya rapi -->
-    <div class="mid">
-      <nav class="nav">
-        <a class="active" href="#">Home</a>
-        <a href="#">Cameras</a>
-        <a href="#">About Us</a>
-        <a href="#">FAQ</a>
-      </nav>
-
-      <div class="auth">  
-        <a href="admin/login.php" class="btn btn-ghost">Login</a>
-        <a href="admin/register.php" class="btn btn-light">Sign In</a>
-      </div>
-    </div>
-
-    <div class="actions">
-      <button class="icon-btn" title="Account" aria-label="Account">
-        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-          <path fill="currentColor" d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Zm0 2c-4.42 0-8 2.24-8 5v1a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-1c0-2.76-3.58-5-8-5Z"/>
-        </svg>
-      </button>
-      <button class="icon-btn" title="Notifications" aria-label="Notifications">
-        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-          <path fill="currentColor" d="M12 22a2 2 0 0 0 2-2H10a2 2 0 0 0 2 2Zm7-6V11a7 7 0 1 0-14 0v5L3 18v2h18v-2Z"/>
-        </svg>
-      </button>
-      <button class="icon-btn" title="Cart" aria-label="Cart">
-        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-          <path fill="currentColor" d="M7 18a2 2 0 1 0 2 2 2 2 0 0 0-2-2Zm10 0a2 2 0 1 0 2 2 2 2 0 0 0-2-2ZM7.2 14h9.86a1 1 0 0 0 .97-.76l1.73-6.9H6.42L6 4H3v2h2l2.2 8Z"/>
-        </svg>
-      </button>
-    </div>
-  </div>
-</header>
-
-<!-- ================= Hero ================= -->
 <section class="hero-wrap">
-  <!-- Background layer with blur -->
-  <div class="hero-background"></div>
+
+  <div class="hero-background" style="background-image: url('images/BGCamera.jpg');"></div>
   
-  <!-- Foreground layer without blur -->
   <div class="container">
-    <div class="hero-foreground">
+    <div class="hero-foreground" style="background-image: url('images/BGCamera.jpg');">
       <div class="hero-content">
-        <h1>Snaprent</h1>
+        <h1>SnapRent</h1>
         <div class="kicker">Rent Your Perfect Camera</div>
         <p class="lead">Affordable, flexible, and ready when you are</p>
-        <a class="btn-primary" href="#">Rent now</a>
+        <a class="btn-primary rent-btn" href="<?php echo isset($_SESSION['uid']) ? 'Customer/index.php' : 'auth/login.php'; ?>">
+          <span class="btn-text">Rent now</span>
+          <span class="btn-icon">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+              <path d="M5 12h14m-7-7l7 7-7 7"/>
+            </svg>
+          </span>
+        </a>
       </div>
 
       <div class="thumb-strip">
-        <img src="img/rectangle-1386.png" alt="Camera 1">
-        <img src="img/rectangle-1387.png" alt="Camera 2">
-        <img src="img/rectangle-1388.png" alt="Camera 3">
-        <img src="img/rectangle-1386.png" alt="Camera 4">
+        <div class="thumb-item">
+          <img src="images/BGCamera.jpg" alt="Camera 1">
+        </div>
+        <div class="thumb-item">
+          <img src="images/BGCamera.jpg" alt="Camera 2">
+        </div>
+        <div class="thumb-item">
+          <img src="images/BGCamera.jpg" alt="Camera 3">
+        </div>
+        <div class="thumb-item">
+          <img src="images/BGCamera.jpg" alt="Camera 4">
+        </div>
       </div>
     </div>
   </div>
@@ -214,11 +175,21 @@ window.addEventListener('scroll', () => {
   <div class="container">
     <h3>OUR BRAND</h3>
     <div class="brand-row">
-      <div class="brand-pill">Canon</div>
-      <div class="brand-pill">Sony</div>
-      <div class="brand-pill">Nikon</div>
-      <div class="brand-pill">Fujifilm</div>
-      <div class="brand-pill">Panasonic</div>
+      <div class="brand-pill" data-brand="canon">
+        <img src="images/brands/canon.png" alt="Canon">
+      </div>
+      <div class="brand-pill" data-brand="sony">
+        <img src="images/brands/sony.png" alt="Sony">
+      </div>
+      <div class="brand-pill" data-brand="nikon">
+        <img src="images/brands/nikon.png" alt="Nikon">
+      </div>
+      <div class="brand-pill" data-brand="fujifilm">
+        <img src="images/brands/fujifilm.png" alt="Fujifilm">
+      </div>
+      <div class="brand-pill" data-brand="panasonic">
+        <img src="images/brands/panasonic.png" alt="Panasonic">
+      </div>
     </div>
   </div>
 </section>
@@ -289,62 +260,7 @@ window.addEventListener('scroll', () => {
 </section>
 
 <!-- ================= Footer ================= -->
-<footer class="footer">
-  <div class="container">
-    <div class="footer-top">
-      <div>
-        <h5>SnapRent</h5>
-        <p>Professional camera rentals for photographers and videographers</p>
-      </div>
-      <div>
-        <h5>Quick Links</h5>
-        <div class="links">
-          <a href="#">Home</a><a href="#">Cameras</a><a href="#">About</a><a href="#">Contact</a>
-        </div>
-      </div>
-      <div>
-        <h5>Categories</h5>
-        <div class="links">
-          <a href="#">DSLR</a><a href="#">Mirrorless</a><a href="#">Digicam</a><a href="#">Analog</a>
-        </div>
-      </div>
-      <div>
-        <h5>Contact</h5>
-        <div class="links">
-          <a href="#">
-            <!-- WhatsApp -->
-            <svg class="icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M20 3.9A10 10 0 0 0 3.6 17.8L3 21l3.3-.6A10 10 0 1 0 20 3.9Zm-8 2a7.9 7.9 0 0 1 7.9 8 7.9 7.9 0 0 1-11.4 7l-.6.1.1-.6A7.9 7.9 0 0 1 12 5.9Zm-3.1 2.9c-.2 0-.5.1-.6.3-.4.4-1 1.1-1 2.1 0 1 .7 2 1 2.4.2.3 1.9 3.1 4.6 4.1.6.2 1 .3 1.4.4.6.2 1.3.1 1.8-.4.3-.3.7-.8.8-1.1.1-.3.1-.6 0-.7s-.3-.2-.6-.3l-1.8-.8c-.3-.1-.5 0-.6.1l-.5.6c-.1.1-.2.1-.3.1-.1 0-.3-.1-.5-.2a7.7 7.7 0 0 1-2.4-1.9c-.6-.7-.8-1.2-.9-1.4-.1-.1 0-.2.1-.3l.4-.4c.2-.2.2-.4.2-.6l-.1-.7c0-.3-.1-.5-.3-.6-.2-.1-.4-.1-.6-.1Z"/></svg>
-            <span>(555) 123-4567</span>
-          </a>
-          <a href="#">
-            <!-- Email -->
-            <svg class="icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M20 4H4a2 2 0 0 0-2 2v1l10 6 10-6V6a2 2 0 0 0-2-2Zm0 5.2-8 4.8L4 9.2V18a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2Z"/></svg>
-            <span>hello@snaprent.com</span>
-          </a>
-          <a href="#">
-            <!-- Location -->
-            <svg class="icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 14.5 9 2.5 2.5 0 0 1 12 11.5Z"/></svg>
-            <span>123 Photo Street, Camera City</span>
-          </a>
-          <a href="#">
-            <!-- Instagram (rounded square + lens) -->
-            <svg class="icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5Zm5 6a5 5 0 1 0 5 5 5 5 0 0 0-5-5Zm6.5-2.5a1.5 1.5 0 1 0 1.5 1.5 1.5 1.5 0 0 0-1.5-1.5Z"/></svg>
-            <span>Mon-Fri: 9AM-6PM</span>
-          </a>
-        </div>
-      </div>
-    </div>
-
-    <div class="footer-bottom">
-      <div>© 2024 SnapRent. All rights reserved.</div>
-      <div class="footer-mini">
-        <a href="#">Privacy Policy</a>
-        <a href="#">Terms of Service</a>
-        <a href="#">Cookie Policy</a>
-      </div>
-    </div>
-  </div>
-</footer>
+<?php require __DIR__ . '/partials/footer.php'; ?>
 
 <script>
 // ===== Featured carousel: autoplay + manual controls =====
@@ -387,6 +303,71 @@ window.addEventListener('scroll', () => {
     clearInterval(timer); timer = null;
   }
 
+  // Enhanced Brand Animation
+  function initBrandAnimation() {
+    const brandPills = document.querySelectorAll('.brand-pill');
+    
+    brandPills.forEach((pill) => {
+      pill.addEventListener('mouseenter', function() {
+        this.style.transform = 'translateY(-8px) scale(1.05)';
+        this.style.boxShadow = '0 20px 40px rgba(0,0,0,0.3)';
+      });
+      
+      pill.addEventListener('mouseleave', function() {
+        this.style.transform = 'translateY(0) scale(1)';
+        this.style.boxShadow = '0 10px 24px rgba(0,0,0,.28)';
+      });
+    });
+  }
+
+  // Rent Button Animation
+  function initRentButton() {
+    const rentBtn = document.querySelector('.rent-btn');
+    
+    rentBtn.addEventListener('mouseenter', function() {
+      this.style.transform = 'translateY(-3px)';
+      this.style.boxShadow = '0 15px 30px rgba(0,0,0,0.4)';
+    });
+    
+    rentBtn.addEventListener('mouseleave', function() {
+      this.style.transform = 'translateY(0)';
+      this.style.boxShadow = '0 10px 20px rgba(0,0,0,.28)';
+    });
+    
+    rentBtn.addEventListener('click', function(e) {
+      // Add ripple effect
+      const ripple = document.createElement('span');
+      const rect = this.getBoundingClientRect();
+      const size = Math.max(rect.width, rect.height);
+      const x = e.clientX - rect.left - size / 2;
+      const y = e.clientY - rect.top - size / 2;
+      
+      ripple.style.cssText = `
+        position: absolute;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.7);
+        transform: scale(0);
+        animation: ripple 0.6s linear;
+        width: ${size}px;
+        height: ${size}px;
+        left: ${x}px;
+        top: ${y}px;
+      `;
+      
+      this.appendChild(ripple);
+      
+      setTimeout(() => {
+        ripple.remove();
+      }, 600);
+    });
+  }
+
+  // Initialize when page loads
+  document.addEventListener('DOMContentLoaded', function() {
+    initBrandAnimation();
+    initRentButton();
+  });
+
   carousel.addEventListener('mouseenter', stop);
   carousel.addEventListener('mouseleave', start);
 
@@ -419,5 +400,15 @@ window.addEventListener('scroll', () => {
   });
 })();
 </script>
+
+<style>
+  /* Ripple animation for rent button */
+  @keyframes ripple {
+    to {
+      transform: scale(4);
+      opacity: 0;
+    }
+  }
+</style>
 </body>
 </html>

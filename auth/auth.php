@@ -231,7 +231,7 @@ function currentUser(PDO $pdo): ?array {
 function require_login(PDO $pdo) {
   $u = currentUser($pdo);
   if (!$u) {
-    header('Location: ../admin/login.php');
+    header('Location: ../auth/login.php');
     exit;
   }
 }
