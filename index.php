@@ -18,16 +18,15 @@ window.addEventListener('scroll', () => {
   document.body.classList.toggle('scrolled', window.scrollY > 10);
 });
 </script>
-
 </head>
+
 <body>
 
 <!-- ================= Header ================= -->
 <header class="header">
   <div class="container header-inner">
     <div class="brand">
-      <img src="SnapRent\style\design\logo snaprent.png" alt="SnapRent logo">
-      <div> </div>
+      <img src="style/design/logo snaprent.png" alt="SnapRent logo">
     </div>
 
     <nav class="nav">
@@ -38,9 +37,24 @@ window.addEventListener('scroll', () => {
     </nav>
 
     <div class="actions">
-      <div class="icon-btn" title="Account">👤</div>
-      <div class="icon-btn" title="Notifications">🔔</div>
-      <div class="icon-btn" title="Cart">🛒</div>
+      <!-- Account -->
+      <button class="icon-btn" title="Account" aria-label="Account">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="currentColor" d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Zm0 2c-4.42 0-8 2.24-8 5v1a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-1c0-2.76-3.58-5-8-5Z"/>
+        </svg>
+      </button>
+      <!-- Notifications -->
+      <button class="icon-btn" title="Notifications" aria-label="Notifications">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="currentColor" d="M12 22a2 2 0 0 0 2-2H10a2 2 0 0 0 2 2Zm7-6V11a7 7 0 1 0-14 0v5L3 18v2h18v-2Z"/>
+        </svg>
+      </button>
+      <!-- Cart -->
+      <button class="icon-btn" title="Cart" aria-label="Cart">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="currentColor" d="M7 18a2 2 0 1 0 2 2 2 2 0 0 0-2-2Zm10 0a2 2 0 1 0 2 2 2 2 0 0 0-2-2ZM7.2 14h9.86a1 1 0 0 0 .97-.76l1.73-6.9H6.42L6 4H3v2h2l2.2 8Z"/>
+        </svg>
+      </button>
     </div>
   </div>
 </header>
@@ -77,15 +91,60 @@ window.addEventListener('scroll', () => {
     <p class="sub">Experience camera rental made simple, fast, and reliable</p>
 
     <div class="why-grid">
-      <div class="card"><div class="ci">⏱️</div><h4>Real-Time Availability</h4><p>Instantly check which cameras are available and reserve them right away</p></div>
-      <div class="card"><div class="ci">🪙</div><h4>Affordable Daily Rates</h4><p>Transparent pricing with no hidden costs, rent high-end cameras at budget-friendly prices</p></div>
-      <div class="card"><div class="ci">⚡</div><h4>Fast & Easy Booking</h4><p>Simple online reservation system — book your gear in just a few clicks</p></div>
-      <div class="card"><div class="ci">🧰</div><h4>Reliable Equipment</h4><p>Every camera is tested and maintained to ensure top performance</p></div>
+      <div class="card">
+        <div class="ci" aria-hidden="true">
+          <!-- clock -->
+          <svg class="icon icon-28" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a10 10 0 1 0 10 10A10.01 10.01 0 0 0 12 2Zm1 11h-4V7h2v4h2Z"/></svg>
+        </div>
+        <h4>Real-Time Availability</h4>
+        <p>Instantly check which cameras are available and reserve them right away</p>
+      </div>
+
+      <div class="card">
+        <div class="ci" aria-hidden="true">
+          <!-- currency-dollar -->
+          <svg class="icon icon-28" viewBox="0 0 24 24"><path fill="currentColor" d="M13 3h-2v2.06A5 5 0 0 0 7 10c0 2.76 2.24 4 5 4s3 .9 3 2-1 2-3 2-3-.9-3-2H7c0 2.22 1.64 3.67 4 3.93V21h2v-1.07C15.36 19.67 17 18.22 17 16c0-2.76-2.24-4-5-4s-3-.9-3-2 1-2 3-2 3 .9 3 2h2c0-2.22-1.64-3.67-4-3.93Z"/></svg>
+        </div>
+        <h4>Affordable Daily Rates</h4>
+        <p>Transparent pricing with no hidden costs, rent high-end cameras at budget-friendly prices</p>
+      </div>
+
+      <div class="card">
+        <div class="ci" aria-hidden="true">
+          <!-- bolt -->
+          <svg class="icon icon-28" viewBox="0 0 24 24"><path fill="currentColor" d="M13 2 4 14h6v8l9-12h-6Z"/></svg>
+        </div>
+        <h4>Fast & Easy Booking</h4>
+        <p>Simple online reservation system — book your gear in just a few clicks</p>
+      </div>
+
+      <div class="card">
+        <div class="ci" aria-hidden="true">
+          <!-- wrench-screwdriver -->
+          <svg class="icon icon-28" viewBox="0 0 24 24"><path fill="currentColor" d="M7 2 5 4l3 3-2 2L3 6 1 8l5 5 4-4 2 2-4 4 5 5 2-2-3-3 2-2 3 3 2-2-3-3 3-3-2-2-3 3-2-2 3-3-2-2-3 3L7 2Z"/></svg>
+        </div>
+        <h4>Reliable Equipment</h4>
+        <p>Every camera is tested and maintained to ensure top performance</p>
+      </div>
     </div>
 
     <div class="why-grid bottom">
-      <div class="card"><div class="ci">⭐</div><h4>Trusted by Creators</h4><p>Hundreds of photographers and videographers rely on our service every month</p></div>
-      <div class="card"><div class="ci">📷</div><h4>Wide Camera Selection</h4><p>From mirrorless to professional DSLRs, find exactly what you need for your next shoot</p></div>
+      <div class="card">
+        <div class="ci" aria-hidden="true">
+          <!-- star -->
+          <svg class="icon icon-28" viewBox="0 0 24 24"><path fill="currentColor" d="m12 2 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1 3-6Z"/></svg>
+        </div>
+        <h4>Trusted by Creators</h4>
+        <p>Hundreds of photographers and videographers rely on our service every month</p>
+      </div>
+      <div class="card">
+        <div class="ci" aria-hidden="true">
+          <!-- camera -->
+          <svg class="icon icon-28" viewBox="0 0 24 24"><path fill="currentColor" d="M9 3 7.5 5H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3.5L15 3H9Zm3 14a5 5 0 1 1 5-5 5.006 5.006 0 0 1-5 5Zm0-2a3 3 0 1 0-3-3 3 3 0 0 0 3 3Z"/></svg>
+        </div>
+        <h4>Wide Camera Selection</h4>
+        <p>From mirrorless to professional DSLRs, find exactly what you need for your next shoot</p>
+      </div>
     </div>
   </div>
 </section>
@@ -104,7 +163,9 @@ window.addEventListener('scroll', () => {
     </div>
 
     <div class="carousel" id="carousel">
-      <button class="chev" id="chevLeft" aria-label="Previous">❮</button>
+      <button class="chev" id="chevLeft" aria-label="Previous">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="m15 18-6-6 6-6v12Z"/></svg>
+      </button>
 
       <div class="stage" id="stage">
         <!-- Kiri (kecil) -->
@@ -135,7 +196,9 @@ window.addEventListener('scroll', () => {
         </div>
       </div>
 
-      <button class="chev" id="chevRight" aria-label="Next">❯</button>
+      <button class="chev" id="chevRight" aria-label="Next">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="m9 6 6 6-6 6V6Z"/></svg>
+      </button>
     </div>
   </div>
 </section>
@@ -162,17 +225,56 @@ window.addEventListener('scroll', () => {
 
     <div class="testi-row">
       <div class="review">
-        <div class="head"><div class="avatar"></div><div><div class="name">Sarah Johnson</div><div class="stars">★★★★★</div></div></div>
+        <div class="head">
+          <div class="avatar"></div>
+          <div>
+            <div class="name">Sarah Johnson</div>
+            <div class="stars" role="img" aria-label="5 out of 5">
+              <!-- 5 solid stars -->
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1 3-6Z" fill="currentColor"/></svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1 3-6Z" fill="currentColor"/></svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1 3-6Z" fill="currentColor"/></svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1 3-6Z" fill="currentColor"/></svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1 3-6Z" fill="currentColor"/></svg>
+            </div>
+          </div>
+        </div>
         <p>Pelayanan sangat memuaskan! Kamera yang saya sewa dalam kondisi prima dan proses pengembaliannya mudah sekali. Pasti akan sewa lagi di sini.</p>
         <div class="date">15 Maret 2025</div>
       </div>
+
       <div class="review">
-        <div class="head"><div class="avatar"></div><div><div class="name">Budi Santoso</div><div class="stars">★★★★★</div></div></div>
+        <div class="head">
+          <div class="avatar"></div>
+          <div>
+            <div class="name">Budi Santoso</div>
+            <div class="stars" role="img" aria-label="5 out of 5">
+              <svg viewBox="0 0 24 24"><path d="m12 2 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1 3-6Z" fill="currentColor"/></svg>
+              <svg viewBox="0 0 24 24"><path d="m12 2 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1 3-6Z" fill="currentColor"/></svg>
+              <svg viewBox="0 0 24 24"><path d="m12 2 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1 3-6Z" fill="currentColor"/></svg>
+              <svg viewBox="0 0 24 24"><path d="m12 2 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1 3-6Z" fill="currentColor"/></svg>
+              <svg viewBox="0 0 24 24"><path d="m12 2 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1 3-6Z" fill="currentColor"/></svg>
+            </div>
+          </div>
+        </div>
         <p>Harga terjangkau untuk kualitas kamera profesional. Tim support sangat responsif membantu saya yang baru belajar fotografi.</p>
         <div class="date">12 Maret 2025</div>
       </div>
+
       <div class="review">
-        <div class="head"><div class="avatar"></div><div><div class="name">Maya Wijaya</div><div class="stars">★★★★★</div></div></div>
+        <div class="head">
+          <div class="avatar"></div>
+          <div>
+            <div class="name">Maya Wijaya</div>
+            <div class="stars" role="img" aria-label="5 out of 5">
+              <svg viewBox="0 0 24 24"><path d="m12 2 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1 3-6Z" fill="currentColor"/></svg>
+              <svg viewBox="0 0 24 24"><path d="m12 2 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1 3-6Z" fill="currentColor"/></svg>
+              <svg viewBox="0 0 24 24"><path d="m12 2 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1 3-6Z" fill="currentColor"/></svg>
+              <svg viewBox="0 0 24 24"><path d="m12 2 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1 3-6Z" fill="currentColor"/></svg>
+              <svg viewBox="0 0 24 24"><path d="m12 2 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1 3-6Z" fill="currentColor"/></svg>
+            </div>
+          </div>
+        </div>
         <p>Perfect untuk project wedding photography! Equipment lengkap dan terawat dengan baik. Highly recommended untuk photographer!</p>
         <div class="date">10 Maret 2025</div>
       </div>
@@ -203,7 +305,26 @@ window.addEventListener('scroll', () => {
       <div>
         <h5>Contact</h5>
         <div class="links">
-          <a href="#">(555) 123-4567</a><a href="#">hello@snaprent.com</a><a href="#">123 Photo Street, Camera City</a><a href="#">Mon-Fri: 9AM-6PM</a>
+          <a href="#">
+            <!-- WhatsApp -->
+            <svg class="icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M20 3.9A10 10 0 0 0 3.6 17.8L3 21l3.3-.6A10 10 0 1 0 20 3.9Zm-8 2a7.9 7.9 0 0 1 7.9 8 7.9 7.9 0 0 1-11.4 7l-.6.1.1-.6A7.9 7.9 0 0 1 12 5.9Zm-3.1 2.9c-.2 0-.5.1-.6.3-.4.4-1 1.1-1 2.1 0 1 .7 2 1 2.4.2.3 1.9 3.1 4.6 4.1.6.2 1 .3 1.4.4.6.2 1.3.1 1.8-.4.3-.3.7-.8.8-1.1.1-.3.1-.6 0-.7s-.3-.2-.6-.3l-1.8-.8c-.3-.1-.5 0-.6.1l-.5.6c-.1.1-.2.1-.3.1-.1 0-.3-.1-.5-.2a7.7 7.7 0 0 1-2.4-1.9c-.6-.7-.8-1.2-.9-1.4-.1-.1 0-.2.1-.3l.4-.4c.2-.2.2-.4.2-.6l-.1-.7c0-.3-.1-.5-.3-.6-.2-.1-.4-.1-.6-.1Z"/></svg>
+            <span>(555) 123-4567</span>
+          </a>
+          <a href="#">
+            <!-- Email -->
+            <svg class="icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M20 4H4a2 2 0 0 0-2 2v1l10 6 10-6V6a2 2 0 0 0-2-2Zm0 5.2-8 4.8L4 9.2V18a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2Z"/></svg>
+            <span>hello@snaprent.com</span>
+          </a>
+          <a href="#">
+            <!-- Location -->
+            <svg class="icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 14.5 9 2.5 2.5 0 0 1 12 11.5Z"/></svg>
+            <span>123 Photo Street, Camera City</span>
+          </a>
+          <a href="#">
+            <!-- Instagram (rounded square + lens) -->
+            <svg class="icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5Zm5 6a5 5 0 1 0 5 5 5 5 0 0 0-5-5Zm6.5-2.5a1.5 1.5 0 1 0 1.5 1.5 1.5 1.5 0 0 0-1.5-1.5Z"/></svg>
+            <span>Mon-Fri: 9AM-6PM</span>
+          </a>
         </div>
       </div>
     </div>
@@ -285,12 +406,9 @@ window.addEventListener('scroll', () => {
     const endX = e.changedTouches[0].clientX;
     const diff = startX - endX;
     
-    if(Math.abs(diff) > 50) { // Minimum swipe distance
-      if(diff > 0) {
-        rotate(1); // Swipe left - next
-      } else {
-        rotate(-1); // Swipe right - previous
-      }
+    if(Math.abs(diff) > 50) {
+      if(diff > 0) rotate(1);      // Swipe kiri -> next
+      else        rotate(-1);      // Swipe kanan -> prev
     }
   });
 })();
