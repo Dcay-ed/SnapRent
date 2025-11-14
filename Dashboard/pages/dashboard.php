@@ -1,17 +1,13 @@
 <?php
 // ======================================================================
 // dashboard.php — SnapRent Admin Dashboard (UI sesuai mockup, siap pakai)
-// Catatan: Tidak ada perubahan skema DB / query KPI/weekly. Hanya Top Rented
-// dihubungkan ke camera_images + polishing CSS/markup tanpa ubah layout.
+// Catatan: TOP RENTED pakai gambar dari table camera_images
 // Asumsi $pdo (PDO) sudah tersedia dari bootstrap/index.
 // ======================================================================
 
 
-// (Opsional) Base path untuk gambar kamera
-// Gunakan path relatif dari root project SnapRent
-$IMG_BASE = __DIR__ . '/../uploads';   // folder SnapRent\Dashboard\uploads
-$IMG_URL_BASE = 'uploads';             // untuk URL <img src="...">
-
+// Base URL untuk gambar kamera (relatif dari folder Dashboard/)
+$IMG_URL_BASE = 'uploads/cameras';   // -> uploads/cameras/{camera_id}/{filename}
 
 
 // Helper aman: idr_compact() bila belum ada
@@ -114,13 +110,15 @@ foreach($map as $v){
 }
 
 
-// ===== TOP RENTED (sudah konek ke camera_images + rentals)
-// Ambil 1 gambar per kamera (MIN(id)), aman tanpa kolom is_primary.
+// ===== TOP RENTED (gambar dari camera_images)
+// Ambil 1 gambar per kamera (MIN(id)), lalu ambil filename + camera_id
 $top_rented_stmt = $pdo->prepare("
-  SELECT cam.id,
-        cam.name,
-        COUNT(*) AS cnt,
-        ci.filename AS img_path
+  SELECT 
+    cam.id,
+    cam.name,
+    COUNT(*) AS cnt,
+    ci.filename AS img_filename,
+    ci.camera_id AS img_camera_id
   FROM rentals rn
   JOIN cameras cam ON cam.id = rn.camera_id
   LEFT JOIN (
@@ -130,30 +128,38 @@ $top_rented_stmt = $pdo->prepare("
   ) pick ON pick.camera_id = cam.id
   LEFT JOIN camera_images ci ON ci.id = pick.img_id
   WHERE rn.created_at BETWEEN ? AND ?
-  GROUP BY cam.id, cam.name, ci.filename
+  GROUP BY cam.id, cam.name, ci.filename, ci.camera_id
   ORDER BY cnt DESC
   LIMIT 3
 ");
 $top_rented_stmt->execute([$start_month,$end_month]);
 $top_rented = $top_rented_stmt->fetchAll(PDO::FETCH_ASSOC);
 
-
 // Lengkapi placeholder jika kurang dari 3
 for ($i = count($top_rented); $i < 3; $i++) {
-  $top_rented[] = ['id'=>null,'name'=>'—','cnt'=>0,'img_path'=>''];
+  $top_rented[] = [
+    'id'            => null,
+    'name'          => '—',
+    'cnt'           => 0,
+    'img_filename'  => '',
+    'img_camera_id' => null
+  ];
 }
 
 
-// ===== Recent rentals (tetap)
+// ===== Recent rentals (STATUS ikut rentals.status)
 $recent_orders = $pdo->prepare(
-  "SELECT rn.id, rn.created_at, rn.total_price,
-          acc.username AS customer, cam.name AS camera_name, cam.daily_price,
-          COALESCE(v.last_payment_status,'pending') last_payment_status
+  "SELECT rn.id,
+          rn.created_at,
+          rn.total_price,
+          rn.status AS rental_status,
+          acc.username AS customer,
+          cam.name AS camera_name,
+          cam.daily_price
    FROM rentals rn
    JOIN customers c ON c.customer_id = rn.customer_id
    JOIN accounts  acc ON acc.id = c.customer_id
    JOIN cameras   cam ON cam.id = rn.camera_id
-   LEFT JOIN v_rental_payment_status v ON v.rental_id = rn.id
    WHERE rn.created_at BETWEEN ? AND ?
    ORDER BY rn.created_at DESC
    LIMIT 5"
@@ -162,22 +168,18 @@ $recent_orders->execute([$start_month,$end_month]);
 $recent_orders = $recent_orders->fetchAll(PDO::FETCH_ASSOC);
 
 
-
 // Nama admin (opsional)
 $currentAdminName = $currentAdminName
   ?? ($_SESSION['admin_name'] ?? ($_SESSION['username'] ?? 'Name'));
 
 
-// Helper kecil untuk resolve path img
-$resolveImg = function(?string $p) use ($IMG_BASE) {
-  $p = (string)$p;
-  if ($p === '') return '';
-  // Jika sudah absolut (http/https) atau sudah diawali '/', langsung pakai
-  if (preg_match('~^(https?:)?//~i', $p) || str_starts_with($p, '/')) return $p;
-  // Jika butuh base folder
-  $base = rtrim($IMG_BASE, '/');
-  if ($base !== '') return $base . '/' . ltrim($p, '/');
-  return $p;
+// Helper kecil untuk buat URL gambar kamera dari camera_images
+$buildCameraImgUrl = function($cameraId, $filename) use ($IMG_URL_BASE) {
+  $cameraId = (int)$cameraId;
+  $filename = (string)$filename;
+  if ($cameraId <= 0 || $filename === '') return '';
+  $base = rtrim($IMG_URL_BASE, '/');          // uploads/cameras
+  return $base . '/' . $cameraId . '/' . ltrim($filename, '/');
 };
 ?>
 <!-- ========================= UI (sesuai mockup) ========================= -->
@@ -215,7 +217,7 @@ a{text-decoration:none;color:inherit}
 
 /* Top Rented - Kolom kiri */
 .toprented {
-  padding-left: 10px;  /* Geser seluruh section ke kanan */
+  padding-left: 10px;  /* Geser seluruh section ke kanan dikit */
 }
 .toprented .section-title {
   margin-top: 35px;
@@ -225,18 +227,40 @@ a{text-decoration:none;color:inherit}
 
 .toprented .cards{
   display:flex;
-  gap:50px;
+  gap:22px;                 /* diperkecil supaya 3 kartu muat sejajar */
   align-items:flex-start;
   justify-content:flex-start;
   flex-wrap:wrap;
 }
+
 /* Wrapper untuk card dan badge */
 .rentcard-wrap{ 
-  width:230px;
+  width:200px;              /* disamakan dengan rentcard */
   position:relative;
 }
 
-/* Badge ranking - terpisah dari card */
+/* Rentcard */
+.rentcard{
+  width:200px;
+  height:200px;
+  border-radius:16px;
+  background:#e9eef6;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  position:relative;
+  overflow:hidden;
+  box-shadow:0 1px 4px rgba(16,24,40,.05);
+}
+
+.rentcard img{ 
+  width:100%; 
+  height:100%; 
+  object-fit:cover; 
+  display:block; 
+}
+
+/* Badge ranking */
 .rank{
   position:absolute;
   top:-8px;
@@ -273,27 +297,6 @@ a{text-decoration:none;color:inherit}
   font-weight:700;
 }
 
-/* Rentcard - tidak ada perubahan */
-.rentcard{
-  width:250px;
-  height:250px;
-  border-radius:16px;
-  background:#e9eef6;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  position:relative;
-  overflow:hidden;
-  box-shadow:0 1px 4px rgba(16,24,40,.05);
-}
-
-.rentcard img{ 
-  width:100%; 
-  height:100%; 
-  object-fit:cover; 
-  display:block; 
-}
-
 .rentname{
   margin-top:8px;
   font-size:15px;
@@ -306,30 +309,6 @@ a{text-decoration:none;color:inherit}
   font-size:14px;
 }
 
-.rentcard img{ width:100%; height:100%; object-fit:cover; display:block; }
-.rank{
-  position:absolute;
-  top:2px;
-  left:2px;
-  background:var(--brand);
-  color:#fff;
-  min-width:42px;
-  height:34px;
-  padding:0 8px;
-  border-radius:12px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-weight:700;
-  font-size:11px;
-  box-shadow:0 2px 6px rgba(0,0,0,.15);
-  z-index:10;
-}
-.rank sup{
-  font-size:8px;
-  margin-left:1px;
-  font-weight:700;
-}
 
 /* Performance panel - Kolom kanan */
 .mid section:last-child .section-title {
@@ -433,8 +412,9 @@ a{text-decoration:none;color:inherit}
             <!-- Rentcard -->
             <div class="rentcard">
               <?php
-                $raw = $t['img_path'] ?? '';
-                $src = $resolveImg($raw);
+                $rawFilename = $t['img_filename'] ?? '';
+                $camId       = $t['img_camera_id'] ?? $t['id'];
+                $src         = $buildCameraImgUrl($camId, $rawFilename);
               ?>
               <?php if (!empty($src)): ?>
                 <img src="<?= htmlspecialchars($src) ?>" alt="<?= htmlspecialchars($t['name']) ?>">
@@ -478,9 +458,20 @@ a{text-decoration:none;color:inherit}
       </div>
       <?php foreach($recent_orders as $o):
         $inv = str_pad($o['id'],5,'0',STR_PAD_LEFT);
-        $status = $o['last_payment_status'];
-        $cls = $status==='verified'?'s-verified':($status==='rejected'?'s-rejected':'s-pending');
-        $txt = $status==='verified'?'Verified':($status==='rejected'?'Rejected':'Pending');
+        $statusRaw = strtolower($o['rental_status'] ?? 'pending');
+
+        // Mapping warna badge berdasarkan rentals.status
+        $statusClassMap = [
+          'pending'   => 's-pending',
+          'confirmed' => 's-verified',
+          'ongoing'   => 's-verified',
+          'completed' => 's-verified',
+          'cancelled' => 's-rejected',
+          'canceled'  => 's-rejected',
+          'expired'   => 's-rejected',
+        ];
+        $cls = $statusClassMap[$statusRaw] ?? 's-pending';
+        $txt = ucfirst($statusRaw);
       ?>
         <div class="trow">
           <div>#<?= $inv ?></div>
@@ -498,12 +489,10 @@ a{text-decoration:none;color:inherit}
 <script>
 const ctx = document.getElementById('performanceChart');
 if (ctx){
-  // Buat gradient untuk Total Sales (garis biru/ungu)
   const gradientSales = ctx.getContext('2d').createLinearGradient(0, 0, 0, 280);
   gradientSales.addColorStop(0, 'rgba(95, 118, 232, 0.3)');
   gradientSales.addColorStop(1, 'rgba(95, 118, 232, 0.02)');
   
-  // Buat gradient untuk Total Revenue (garis merah/pink)
   const gradientRevenue = ctx.getContext('2d').createLinearGradient(0, 0, 0, 280);
   gradientRevenue.addColorStop(0, 'rgba(255, 107, 129, 0.3)');
   gradientRevenue.addColorStop(1, 'rgba(255, 107, 129, 0.02)');
@@ -549,21 +538,21 @@ if (ctx){
         }
       ]
     },
-      options:{
-        responsive: true,
-        maintainAspectRatio: false,
-        layout: {
-          padding: {
-            top: 10,
-            right: 15,
-            bottom: 5,
-            left: 5
-          }
-        },
-        interaction: {
-          mode: 'index',
-          intersect: false,
-        },
+    options:{
+      responsive: true,
+      maintainAspectRatio: false,
+      layout: {
+        padding: {
+          top: 10,
+          right: 15,
+          bottom: 5,
+          left: 5
+        }
+      },
+      interaction: {
+        mode: 'index',
+        intersect: false,
+      },
       plugins: {
         legend: {
           display: true,
@@ -626,7 +615,6 @@ if (ctx){
               }
               if (context.parsed.y !== null) {
                 if (context.datasetIndex === 1) {
-                  // Format revenue dengan Rupiah
                   if (context.parsed.y >= 1000000) {
                     label += 'Rp ' + (context.parsed.y/1000000).toFixed(1) + 'M';
                   } else if (context.parsed.y >= 1000) {
@@ -635,7 +623,6 @@ if (ctx){
                     label += 'Rp ' + context.parsed.y.toLocaleString('id-ID');
                   }
                 } else {
-                  // Format sales count
                   label += context.parsed.y + ' Sales';
                 }
               }

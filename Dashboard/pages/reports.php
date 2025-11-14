@@ -1,150 +1,464 @@
 <?php
-// ====== (Tetap) DATA dari DB 7 hari terakhir ======
-$labels_7d = [];
+// ======================================================================
+// reports.php — SnapRent Reports (Analytic & Insight)
+// ======================================================================
+
+// ===================== 1. PERFORMANCE OVERVIEW (Last 7 Days) =====================
+$labels_7d  = [];
 $revenue_7d = [];
-$orders_7d = [];
-$map = [];
+$orders_7d  = [];
+$map        = [];
 
-for ($i=6; $i>=0; $i--){
-  $d=(new DateTime("today -{$i} days"))->format('Y-m-d');
-  $labels_7d[]=(new DateTime($d))->format('D');
-  $map[$d]=['rev'=>0,'ord'=>0];
+for ($i = 6; $i >= 0; $i--) {
+  $d = (new DateTime("today -{$i} days"))->format('Y-m-d');
+  $labels_7d[] = (new DateTime($d))->format('D');   // Mon, Tue, dst
+  $map[$d] = ['rev' => 0.0, 'ord' => 0];
 }
 
-foreach ($pdo->query("SELECT DATE(paid_at)d,SUM(amount)amt FROM payments WHERE status='verified' AND paid_at>=DATE_SUB(CURDATE(),INTERVAL 6 DAY) GROUP BY DATE(paid_at)") as $r){
-  $map[$r['d']]['rev']=(float)$r['amt'];
+// Revenue dari payments
+$sqlRev = "
+  SELECT DATE(paid_at) AS d, SUM(amount) AS amt
+  FROM payments
+  WHERE status = 'verified'
+    AND paid_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+  GROUP BY DATE(paid_at)
+";
+foreach ($pdo->query($sqlRev) as $r) {
+  if (isset($map[$r['d']])) {
+    $map[$r['d']]['rev'] = (float)$r['amt'];
+  }
 }
 
-foreach ($pdo->query("SELECT DATE(created_at)d,COUNT(*)c FROM rentals WHERE created_at>=DATE_SUB(CURDATE(),INTERVAL 6 DAY) GROUP BY DATE(created_at)") as $r){
-  $map[$r['d']]['ord']=(int)$r['c'];
+// Orders dari rentals
+$sqlOrd = "
+  SELECT DATE(created_at) AS d, COUNT(*) AS c
+  FROM rentals
+  WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+  GROUP BY DATE(created_at)
+";
+foreach ($pdo->query($sqlOrd) as $r) {
+  if (isset($map[$r['d']])) {
+    $map[$r['d']]['ord'] = (int)$r['c'];
+  }
 }
 
-foreach ($map as $vals){
-  $revenue_7d[]=$vals['rev'];
-  $orders_7d[]=$vals['ord'];
+foreach ($map as $v) {
+  $revenue_7d[] = $v['rev'];
+  $orders_7d[]  = $v['ord'];
 }
 
-// ====== (Dummy ringan, TANPA ubah DB) ======
-// Boleh Anda ganti dgn query jika sudah tersedia.
+
+// ===================== 2. CUSTOMER SATISFACTION (reviews) =====================
+$rowCsat = $pdo->query("SELECT AVG(rating) AS avg_rating FROM reviews")
+               ->fetch(PDO::FETCH_ASSOC);
+
+$csatAverage = $rowCsat && $rowCsat['avg_rating'] !== null
+  ? (float)$rowCsat['avg_rating']
+  : 0.0;
+
 $csatBuckets = [5,4,3,2,1];
-$csatCounts  = [12,8,10,9,3];
-$csatAverage = 4.7;
+$csatCountsAssoc = [5=>0,4=>0,3=>0,2=>0,1=>0];
 
+$sqlCsatDist = "SELECT rating, COUNT(*) AS c FROM reviews GROUP BY rating";
+foreach ($pdo->query($sqlCsatDist) as $r) {
+  $rate = (int)$r['rating'];
+  if (isset($csatCountsAssoc[$rate])) {
+    $csatCountsAssoc[$rate] = (int)$r['c'];
+  }
+}
+
+$csatCounts = [];
+foreach ($csatBuckets as $b) {
+  $csatCounts[] = $csatCountsAssoc[$b];
+}
+
+
+// ===================== 3. STOCK OVERVIEW (cameras) =====================
 $stockBreakdown = [
-  "Rent" => 50,
-  "Available" => 25,
-  "Under Treatment" => 25
+  "Rent"           => 0,
+  "Available"      => 0,
+  "Under Treatment"=> 0,
 ];
+
+$sqlStock = "SELECT status, COUNT(*) AS c FROM cameras GROUP BY status";
+foreach ($pdo->query($sqlStock) as $row) {
+  if ($row['status'] === 'available')      $stockBreakdown['Available']       = (int)$row['c'];
+  if ($row['status'] === 'unavailable')    $stockBreakdown['Rent']            = (int)$row['c'];
+  if ($row['status'] === 'maintenance')    $stockBreakdown['Under Treatment'] = (int)$row['c'];
+}
+
+
+// ===================== 4. LATE RETURNS SUMMARY (rentals) =====================
+$rowLate = $pdo->query("
+  SELECT
+    SUM(CASE WHEN returned_at IS NOT NULL AND returned_at > end_date THEN 1 ELSE 0 END) AS late_cnt,
+    SUM(CASE WHEN returned_at IS NOT NULL AND returned_at <= end_date THEN 1 ELSE 0 END) AS ontime_cnt
+  FROM rentals
+")->fetch(PDO::FETCH_ASSOC);
 
 $lateReturn = [
-  "Late" => 50,
-  "On time" => 50
+  "Late"    => (int)$rowLate['late_cnt'],
+  "On time" => (int)$rowLate['ontime_cnt']
 ];
 
-// $top_products sudah ada di file Anda; dipakai di “Top Rented”
+
+// ===================== 5. TOP RENTED (30 hari terakhir) =====================
+$sqlTop = "
+  SELECT 
+    c.id,
+    c.name,
+    c.brand,
+    COUNT(*) AS cnt
+  FROM rentals rn
+  JOIN cameras c ON c.id = rn.camera_id
+  WHERE rn.start_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+    AND rn.status IN ('confirmed','rented','returned')
+  GROUP BY c.id, c.name, c.brand
+  ORDER BY cnt DESC
+  LIMIT 10
+";
+$top_products = $pdo->query($sqlTop)->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
-<!-- ====== CONTENT AREA SAJA (tidak mengubah header/footer/sidebar) ====== -->
+<!-- ===================== CONTENT AREA (DESIGN MOCKUP) ===================== -->
 <style>
-  /* Scoped agar tidak bentrok */
-  .sr-reports *{box-sizing:border-box}
-  .sr-reports .page-title{font-size:28px;font-weight:800;margin:0}
-  .sr-reports .subtitle{color:#64748b;font-size:13px;margin:4px 0 0}
-  .sr-reports .grid{display:grid;gap:18px;grid-template-columns:2.2fr 1fr}
-  .sr-reports .row3{display:grid;gap:18px;grid-template-columns:1fr 1fr 1fr;margin-top:18px}
-  .sr-card{background:#fff;border:1px solid #e2e8f0;border-radius:18px;box-shadow:0 10px 30px rgba(15,23,42,.08);padding:18px}
-  .sr-card h5{font-size:16px;margin:0 0 10px}
-  .sr-chart{height:280px}
-  .sr-chip{background:#e7f2ff;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700;color:#1d4ed8;margin-left:8px}
-  .sr-top{display:flex;align-items:center;gap:14px;margin-bottom:16px}
-  .sr-export{margin-left:auto;position:relative}
-  .sr-btn{background:#e8eefc;border:1px solid #cfe0ff;padding:8px 12px;border-radius:12px;font-weight:600;cursor:pointer}
-  .sr-dd{position:absolute;right:0;top:40px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 10px 30px rgba(15,23,42,.08);display:none;min-width:140px;overflow:hidden}
-  .sr-dd a{display:block;padding:10px 12px;text-decoration:none;color:#111827}
-  .sr-dd a:hover{background:#f3f4f6}
-  .sr-toprented{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:8px}
-  .sr-topitem{display:flex;align-items:center;gap:10px;padding:10px;border:1px dashed #d8d8d8;border-radius:14px;background:#fff7f7}
-  .sr-thumb{width:48px;height:48px;border-radius:12px;background:#f8fafc;object-fit:cover;border:1px solid #e2e8f0}
-  @media(max-width:1100px){.sr-reports .grid{grid-template-columns:1fr}.sr-reports .row3{grid-template-columns:1fr}}
-  @media print{.sr-export{display:none}.sr-card{page-break-inside:avoid}}
+  .sr-page{
+    font-family:'Poppins',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    background:#e5ecf6;
+    width:100%;
+    padding:14px 18px 18px;
+    min-height:calc(100vh - 80px);
+    box-sizing:border-box;
+  }
+  .sr-page *{box-sizing:border-box;}
+
+  .sr-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    margin-bottom:10px;
+  }
+  .sr-title-wrap h1{
+    margin:0;
+    font-size:26px;
+    font-weight:800;
+    color:#111827;
+  }
+  .sr-title-wrap .sr-subtitle{
+    margin-top:2px;
+    font-size:12px;
+    color:#6b7280;
+  }
+
+  .sr-actions{
+    display:flex;
+    gap:8px;
+  }
+  .sr-btn{
+    border-radius:10px;
+    padding:6px 12px;
+    font-size:12px;
+    font-weight:600;
+    border:1px solid #cbd4e6;
+    background:#dbe3f5;
+    color:#111827;
+    cursor:pointer;
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    box-shadow:0 4px 10px rgba(15,23,42,.12);
+  }
+  .sr-btn.secondary{
+    background:#f3f4f6;
+    border-color:#d1d5db;
+    box-shadow:none;
+  }
+
+  .sr-dd-wrap{position:relative;}
+  .sr-dd{
+    position:absolute;
+    right:0;
+    top:32px;
+    min-width:130px;
+    background:#ffffff;
+    border-radius:10px;
+    border:1px solid #d1d5db;
+    box-shadow:0 10px 24px rgba(15,23,42,.18);
+    padding:4px 0;
+    display:none;
+    z-index:40;
+  }
+  .sr-dd a{
+    display:block;
+    padding:6px 10px;
+    font-size:12px;
+    color:#111827;
+    text-decoration:none;
+  }
+  .sr-dd a:hover{background:#f3f4f6;}
+
+  .sr-grid-top{
+    display:grid;
+    grid-template-columns:2.1fr 1fr;
+    gap:12px;
+  }
+  .sr-grid-bottom{
+    display:grid;
+    grid-template-columns:1fr 1fr 1.3fr;
+    gap:12px;
+    margin-top:10px;
+  }
+
+  .sr-card{
+    background:#ffffff;
+    border-radius:24px;
+    padding:10px 14px 10px;
+    border:1px solid #d7dfef;
+    box-shadow:0 14px 30px rgba(15,23,42,.08);
+    display:flex;
+    flex-direction:column;
+  }
+  .sr-card h3{
+    margin:0 0 4px;
+    font-size:15px;
+    font-weight:700;
+    color:#111827;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .sr-chip{
+    background:#edf2ff;
+    color:#1d4ed8;
+    font-size:10px;
+    padding:3px 8px;
+    border-radius:999px;
+    font-weight:600;
+  }
+
+  /* INI BAGIAN PENTING: kita pastikan canvas mengisi tinggi card */
+  .sr-chart{
+    flex:1;
+    min-height:180px;
+    max-height:210px;
+  }
+
+  /* ==== PERPANJANG KHUSUS 2 KARTU ATAS ==== */
+  .sr-grid-top .sr-card {
+      min-height: 420px; /* tambah tinggi container */
+  }
+
+  .sr-grid-top .sr-card .sr-chart {
+      min-height: 260px; /* tambah tinggi grafik */
+      max-height: 260px;
+  }
+
+  .sr-chart canvas{
+    width:100% !important;
+    height:100% !important;
+  }
+
+  .sr-csat-value{
+    text-align:right;
+    font-size:20px;
+    font-weight:700;
+    margin-bottom:2px;
+    color:#111827;
+  }
+  .sr-csat-value span{
+    font-size:13px;
+    font-weight:500;
+    color:#6b7280;
+  }
+
+  .sr-legend{
+    display:flex;
+    gap:12px;
+    font-size:11px;
+    color:#4b5563;
+    margin-top:4px;
+  }
+  .sr-dot{
+    width:9px;
+    height:9px;
+    border-radius:999px;
+    display:inline-block;
+    margin-right:4px;
+  }
+
+  .sr-topr-list{
+    margin-top:4px;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .sr-topr-item{
+    display:grid;
+    grid-template-columns:auto 1fr auto;
+    gap:8px;
+    align-items:center;
+    padding:7px 9px;
+    border-radius:14px;
+    border:1px solid #d4d7e5;
+    background:#f8fbff;
+  }
+  .sr-rank{
+    width:24px;
+    height:24px;
+    border-radius:9px;
+    background:#111827;
+    color:#f9fafb;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:12px;
+    font-weight:700;
+  }
+  .sr-cam-name{
+    font-size:12px;
+    font-weight:600;
+    color:#111827;
+  }
+  .sr-cam-meta{
+    font-size:10px;
+    color:#6b7280;
+  }
+  .sr-cam-count{
+    font-size:11px;
+    font-weight:700;
+    color:#111827;
+  }
+
+  @media(max-width:1100px){
+    .sr-grid-top,.sr-grid-bottom{grid-template-columns:1fr;}
+    .sr-header{flex-direction:column;gap:8px;}
+    .sr-actions{align-self:flex-end;}
+  }
 </style>
 
-<div class="sr-reports">
-  <div class="sr-top">
-    <div>
-      <div class="page-title">Reports</div>
-      <div class="subtitle">Analytic &amp; insight</div>
+<div class="sr-page">
+  <!-- Header -->
+  <div class="sr-header">
+    <div class="sr-title-wrap">
+      <h1>Reports</h1>
+      <div class="sr-subtitle">Analytic &amp; insight</div>
     </div>
-    <div class="sr-export">
-      <button id="srBtnExport" class="sr-btn">Export ▾</button>
-      <div id="srDd" class="sr-dd">
-        <a href="#" onclick="window.print();return false;">PDF</a>
-        <a href="#" onclick="srExportCSV();return false;">Excel (CSV)</a>
+    <div class="sr-actions">
+      <button class="sr-btn secondary" onclick="window.print();return false;">Export</button>
+      <div class="sr-dd-wrap">
+        <button id="srBtnExport" class="sr-btn">
+          Export <span style="font-size:11px;">▼</span>
+        </button>
+        <div id="srDd" class="sr-dd">
+          <a href="#" onclick="window.print();return false;">PDF</a>
+          <a href="#" onclick="srExportCSV();return false;">Excel (CSV)</a>
+        </div>
       </div>
     </div>
   </div>
 
-  <div class="grid">
-    <!-- Performance Overview -->
+  <!-- Top row: Performance + CSAT -->
+  <div class="sr-grid-top">
     <section class="sr-card">
-      <h5>Performance Overview <span class="sr-chip">Last 7 Days</span></h5>
-      <div class="sr-chart"><canvas id="srLine"></canvas></div>
+      <h3>Performance Overview <span class="sr-chip">Last 7 Days</span></h3>
+      <div class="sr-chart">
+        <canvas id="srPerf"></canvas>
+      </div>
+      <div class="sr-legend">
+        <span><span class="sr-dot" style="background:#b91c1c;"></span>Total Sales</span>
+        <span><span class="sr-dot" style="background:#4338ca;"></span>Total Revenue</span>
+      </div>
     </section>
 
-    <!-- CSAT -->
     <section class="sr-card">
-      <h5>Customer Satisfaction Overview</h5>
-      <div class="subtitle" style="font-weight:700;margin:0 0 8px"><?php echo number_format($csatAverage,1) ?>/5</div>
-      <div class="sr-chart"><canvas id="srBar"></canvas></div>
+      <h3>Customer Satisfaction Overview</h3>
+      <div class="sr-csat-value">
+        <?= number_format($csatAverage,1) ?><span>/5</span>
+      </div>
+      <div class="sr-chart">
+        <canvas id="srCsat"></canvas>
+      </div>
     </section>
   </div>
 
-  <div class="row3">
-    <!-- Stock -->
+  <!-- Bottom row: Stock, Late, Top Rented -->
+  <div class="sr-grid-bottom">
     <section class="sr-card">
-      <h5>Stock Overview</h5>
-      <div class="sr-chart"><canvas id="srPie"></canvas></div>
+      <h3>Stock Overview</h3>
+      <div class="sr-chart">
+        <canvas id="srStock"></canvas>
+      </div>
+      <div class="sr-legend">
+        <span><span class="sr-dot" style="background:#b91c1c;"></span>Rent</span>
+        <span><span class="sr-dot" style="background:#1d4ed8;"></span>Available</span>
+        <span><span class="sr-dot" style="background:#16a34a;"></span>Under Treatment</span>
+      </div>
     </section>
 
-    <!-- Late Returns -->
     <section class="sr-card">
-      <h5>Late Returns Summary</h5>
-      <div class="sr-chart"><canvas id="srDonut"></canvas></div>
+      <h3>Late Returns Summary</h3>
+      <div class="sr-chart">
+        <canvas id="srLate"></canvas>
+      </div>
+      <div class="sr-legend">
+        <span><span class="sr-dot" style="background:#b91c1c;"></span>Late</span>
+        <span><span class="sr-dot" style="background:#1d4ed8;"></span>On time</span>
+      </div>
     </section>
 
-    <!-- Top Rented -->
     <section class="sr-card">
-      <h5>Top Rented</h5>
-      <div class="sr-toprented">
+      <h3>Top Rented</h3>
+      <div class="sr-topr-list">
         <?php
-        // Ambil 4 teratas dari $top_products (sudah ada di file Anda)
-        $__i=0;
-        foreach ($top_products as $p){
-          if ($__i++>=4) break;
-          $thumb = "https://placehold.co/80x80/png";
-          ?>
-          <div class="sr-topitem">
-            <img class="sr-thumb" src="<?= htmlspecialchars($thumb) ?>" alt="">
-            <div style="font-size:13px;font-weight:600"><?= e($p['name']) ?></div>
-          </div>
-          <?php
-        }
+        $rank = 1;
+        foreach ($top_products as $p):
+          if ($rank > 4) break;
+          $name  = htmlspecialchars($p['name']);
+          $brand = htmlspecialchars($p['brand'] ?? '');
+          $cnt   = (int)$p['cnt'];
         ?>
+          <div class="sr-topr-item">
+            <div class="sr-rank"><?= $rank ?>.</div>
+            <div>
+              <div class="sr-cam-name"><?= $name ?></div>
+              <?php if ($brand): ?>
+                <div class="sr-cam-meta"><?= $brand ?></div>
+              <?php endif; ?>
+            </div>
+            <div class="sr-cam-count"><?= $cnt ?>x disewa</div>
+          </div>
+        <?php
+          $rank++;
+        endforeach;
+        if ($rank === 1): ?>
+          <div style="font-size:12px;color:#6b7280;">Belum ada data rental 30 hari terakhir.</div>
+        <?php endif; ?>
       </div>
     </section>
   </div>
 </div>
 
+<!-- ===================== Chart.js CDN ===================== -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <script>
-  // Dropdown export
+  // ===== Dropdown Export =====
   (function(){
-    const b=document.getElementById('srBtnExport'), d=document.getElementById('srDd');
-    if(!b||!d) return;
-    b.addEventListener('click', ()=>{ d.style.display = d.style.display==='block'?'none':'block'; });
-    document.addEventListener('click', (e)=>{ if(!b.contains(e.target)&&!d.contains(e.target)) d.style.display='none'; });
+    const btn = document.getElementById('srBtnExport');
+    const dd  = document.getElementById('srDd');
+    if (!btn || !dd) return;
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      dd.style.display = dd.style.display === 'block' ? 'none' : 'block';
+    });
+    document.addEventListener('click', e => {
+      if (!btn.contains(e.target) && !dd.contains(e.target)) {
+        dd.style.display = 'none';
+      }
+    });
   })();
 
-  // Data dari PHP
+  // ===== Data dari PHP =====
   const perfLabels = <?= json_encode($labels_7d) ?>;
   const perfSales  = <?= json_encode($orders_7d) ?>;
   const perfRev    = <?= json_encode($revenue_7d) ?>;
@@ -155,47 +469,122 @@ $lateReturn = [
   const lateLabels = <?= json_encode(array_keys($lateReturn)) ?>;
   const lateVals   = <?= json_encode(array_values($lateReturn)) ?>;
 
-  // Buat chart hanya jika Chart.js tersedia (di-load oleh footer Anda)
-  if (window.Chart){
-    new Chart(document.getElementById('srLine'), {
-      type:'line',
-      data:{ labels: perfLabels, datasets:[
-        {label:'Total Sales', data: perfSales, tension:.35, borderWidth:3, pointRadius:3},
-        {label:'Total Revenue', data: perfRev, tension:.35, borderWidth:3, pointRadius:3}
-      ]},
-      options:{responsive:true, plugins:{legend:{position:'top'}},
-        scales:{y:{grid:{color:'#eef2f7'}}, x:{grid:{color:'#f5f7fb'}}}}
-    });
+  // helper opsi supaya semua chart padat & tanpa space berlebihan
+  const baseChartOpts = {
+    responsive:true,
+    maintainAspectRatio:false,
+    layout:{padding:{top:4,right:6,bottom:4,left:6}},
+  };
 
-    new Chart(document.getElementById('srBar'), {
-      type:'bar',
-      data:{ labels: csatLabels, datasets:[{label:'Reviews', data: csatCounts}] },
-      options:{ plugins:{legend:{display:false}} }
-    });
+  // ===== Charts =====
+  new Chart(document.getElementById('srPerf'),{
+    type:'line',
+    data:{
+      labels:perfLabels,
+      datasets:[
+        {
+          label:'Total Sales',
+          data:perfSales,
+          borderColor:'#b91c1c',
+          backgroundColor:'rgba(185,28,28,0.10)',
+          borderWidth:2,
+          pointRadius:3,
+          tension:.35
+        },
+        {
+          label:'Total Revenue',
+          data:perfRev,
+          borderColor:'#4338ca',
+          backgroundColor:'rgba(67,56,202,0.10)',
+          borderWidth:2,
+          pointRadius:3,
+          tension:.35
+        }
+      ]
+    },
+    options:{
+      ...baseChartOpts,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{color:'#e5e7eb'}, ticks:{font:{size:11}}},
+        y:{grid:{color:'#e5e7eb'}, ticks:{font:{size:11}}}
+      }
+    }
+  });
 
-    new Chart(document.getElementById('srPie'), {
-      type:'pie',
-      data:{ labels: stockLabels, datasets:[{ data: stockVals }] },
-      options:{ plugins:{legend:{position:'right'}} }
-    });
+  new Chart(document.getElementById('srCsat'),{
+    type:'bar',
+    data:{
+      labels:csatLabels,
+      datasets:[{
+        data:csatCounts,
+        backgroundColor:'#3b82f6',
+        borderRadius:7,
+        maxBarThickness:40
+      }]
+    },
+    options:{
+      ...baseChartOpts,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{display:false}, ticks:{font:{size:11}}},
+        y:{grid:{color:'#e5e7eb'}, ticks:{font:{size:11}, precision:0}}
+      }
+    }
+  });
 
-    new Chart(document.getElementById('srDonut'), {
-      type:'doughnut',
-      data:{ labels: lateLabels, datasets:[{ data: lateVals }] },
-      options:{ plugins:{legend:{position:'bottom'}}, cutout:'60%' }
-    });
-  }
+  new Chart(document.getElementById('srStock'),{
+    type:'pie',
+    data:{
+      labels:stockLabels,
+      datasets:[{
+        data:stockVals,
+        backgroundColor:['#b91c1c','#1d4ed8','#16a34a']
+      }]
+    },
+    options:{
+      ...baseChartOpts,
+      plugins:{legend:{display:false}}
+    }
+  });
 
-  // Export CSV sederhana (contoh: Top Rented)
+  new Chart(document.getElementById('srLate'),{
+    type:'doughnut',
+    data:{
+      labels:lateLabels,
+      datasets:[{
+        data:lateVals,
+        backgroundColor:['#b91c1c','#1d4ed8'],
+        borderWidth:0
+      }]
+    },
+    options:{
+      ...baseChartOpts,
+      cutout:'60%',
+      plugins:{legend:{display:false}}
+    }
+  });
+
+  // ===== Export CSV Top Rented =====
   function srExportCSV(){
-    const rows = [['Title','Count']];
+    const rows = [['Camera','Brand','Times Rented']];
     <?php foreach($top_products as $p): ?>
-      rows.push([<?= json_encode($p['name']) ?>, <?= (int)$p['cnt'] ?>]);
+      rows.push([
+        <?= json_encode($p['name']) ?>,
+        <?= json_encode($p['brand']) ?>,
+        <?= (int)$p['cnt'] ?>
+      ]);
     <?php endforeach; ?>
-    const csv = rows.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(',')).join('\n');
+
+    const csv = rows
+      .map(r => r.map(v => `"${String(v).replaceAll('"','""')}"`).join(','))
+      .join('\n');
     const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href=url; a.download='top_rented.csv'; a.click();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = 'top_rented.csv';
+    a.click();
     URL.revokeObjectURL(url);
   }
 </script>

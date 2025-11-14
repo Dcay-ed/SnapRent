@@ -1,15 +1,20 @@
 <?php
-// Database connection settings
-$host = "localhost";
-$user = "root"; // Replace with your database username
-$pass = ""; // Replace with your database password
-$dbname = "snaprent"; // Replace with your database name
+// === PDO connection SnapRent ===
+$host    = 'localhost';
+$db      = 'snaprent';
+$user    = 'root';   // ubah jika user DB kamu beda
+$pass    = '';       // ubah jika pakai password
+$charset = 'utf8mb4';
 
-// Create connection
-$conn = new mysqli($host, $user, $pass, $dbname);
+$dsn = "mysql:host=$host;dbname=$db;charset=$charset";
 
-// Check connection
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
+$options = [
+    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION, // error mode exception
+    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,       // fetch assoc
+];
+
+try {
+    $pdo = new PDO($dsn, $user, $pass, $options);
+} catch (PDOException $e) {
+    die('Database connection failed: ' . $e->getMessage());
 }
-?>

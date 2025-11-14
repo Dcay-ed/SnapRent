@@ -11,7 +11,7 @@
 
 // ---------- Konfigurasi ----------
 const MAX_IMAGES_PER_PRODUCT = 6;
-const MAX_FILE_SIZE_BYTES    = 8 * 1024 * 1024; // 8MB
+const MAX_FILE_SIZE_BYTES    = 8 * 1024 * 1024; // 8MB  
 const ALLOWED_MIMES = ['image/jpeg'=>'.jpg','image/png'=>'.png','image/webp'=>'.webp'];
 
 // ---------- Helpers ----------
@@ -261,7 +261,7 @@ $need   = isset($_GET['need']) ? (int)$_GET['need'] : 0;
 $q      = trim($_GET['q'] ?? ''); $brandF = trim($_GET['brand'] ?? ''); $statusF= trim($_GET['status'] ?? '');
 $minp   = trim($_GET['min_price'] ?? ''); $maxp = trim($_GET['max_price'] ?? '');
 $where=[]; $args=[];
-if ($q!==''){ $where[]='(cam.name LIKE ? OR cam.type LIKE ?)'; $args[]="%$q%"; $args[]="%$q%"; }
+if ($q!==''){ $where[]='(cam.name LIKE ? OR cam.type LIKE ? OR cam.brand LIKE ? OR cam.problem LIKE ?)'; $args[]="%$q%"; $args[]="%$q%"; $args[]="%$q%"; $args[]="%$q%";}
 if ($brandF!==''){ $where[]='cam.brand = ?'; $args[]=$brandF; }
 if ($statusF!==''){ $where[]='cam.status = ?'; $args[]=$statusF; }
 if ($need){ $where[]="cam.status IN ('unavailable','maintenance')"; }
@@ -270,7 +270,35 @@ if ($maxp!==''){ $where[]='cam.daily_price <= ?'; $args[]=(float)$maxp; }
 $whereSql=$where?('WHERE '.implode(' AND ',$where)):'';
 
 // ---------- Pagination ----------
-$per=10; $pageNo=max(1,(int)($_GET['p']??1)); $offset=($pageNo-1)*$per;
+// ---------- Pagination & Sorting ----------
+$per = min(50, max(1, (int)($_GET['per'] ?? 50)));      // default 50, batas maksimal 50
+$pageNo = max(1, (int)($_GET['p'] ?? 1));
+$offset = ($pageNo - 1) * $per;
+
+// Sorting whitelist
+$sort = $_GET['sort'] ?? 'created_at';
+$dir  = strtolower($_GET['dir'] ?? 'desc');
+$allowedSort = ['created_at','name','brand','type','daily_price','status'];
+if (!in_array($sort, $allowedSort, true)) $sort = 'created_at';
+$dir = ($dir === 'asc') ? 'ASC' : 'DESC';
+$orderSql = "ORDER BY cam.$sort $dir";
+
+// Helper buat link sorting & pagination (preserve query)
+function build_qs(array $overrides = []) {
+  $params = $_GET;
+  foreach ($overrides as $k=>$v) {
+    if ($v === null) unset($params[$k]); else $params[$k] = $v;
+  }
+  return '?'.http_build_query($params);
+}
+function sort_link($key, $label) {
+  $curSort = $_GET['sort'] ?? 'created_at';
+  $curDir  = strtolower($_GET['dir'] ?? 'desc');
+  $nextDir = ($curSort === $key && $curDir === 'asc') ? 'desc' : 'asc';
+  $qs = build_qs(['sort'=>$key, 'dir'=>$nextDir, 'p'=>1]);
+  $icon = ($curSort === $key) ? ($curDir === 'asc' ? ' ▲' : ' ▼') : '';
+  return '<a href="'.e($qs).'" class="text-decoration-none">'.$label.$icon.'</a>';
+}
 
 // ---------- Data ----------
 $brand_list=$pdo->query("SELECT DISTINCT brand FROM cameras ORDER BY brand ASC")->fetchAll(PDO::FETCH_COLUMN);
@@ -280,7 +308,7 @@ $stmt=$pdo->prepare("
          (SELECT ci.filename FROM camera_images ci WHERE ci.camera_id = cam.id ORDER BY ci.id DESC LIMIT 1) AS image
   FROM cameras cam
   $whereSql
-  ORDER BY cam.created_at DESC
+  $orderSql
   LIMIT $per OFFSET $offset
 "); $stmt->execute($args);
 $cameras=$stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -394,6 +422,18 @@ foreach(array_merge($getAlerts,$alerts) as $al): ?>
     <div class="col-6 col-lg-2"><label class="form-label">Status</label><select class="form-select" name="status"><option value="">All</option><option value="available"   <?= ($statusF ?? '')==='available'   ? 'selected':'' ?>>Available</option><option value="unavailable" <?= ($statusF ?? '')==='unavailable' ? 'selected':'' ?>>Unavailable</option><option value="maintenance" <?= ($statusF ?? '')==='maintenance' ? 'selected':'' ?>>Maintenance</option></select></div>
     <div class="col-6 col-lg-2"><label class="form-label">Min Price</label><input type="number" step="0.01" class="form-control" name="min_price" value="<?= e($minp ?? '') ?>"></div>
     <div class="col-6 col-lg-2"><label class="form-label">Max Price</label><input type="number" step="0.01" class="form-control" name="max_price" value="<?= e($maxp ?? '') ?>"></div>
+    <div class="col-6 col-lg-2">
+      <label class="form-label">Per Page</label>
+      <select class="form-select" name="per">
+        <?php
+          $perChoices = [10,25,50];
+          foreach($perChoices as $pc){
+            $sel = ($per == $pc) ? 'selected' : '';
+            echo "<option value=\"$pc\" $sel>$pc</option>";
+          }
+        ?>
+      </select>
+    </div>
     <div class="col-12 col-lg-1 d-grid"><button class="btn btn-primary-modern">Filter</button></div>
   </div>
 </form>
@@ -404,9 +444,29 @@ foreach(array_merge($getAlerts,$alerts) as $al): ?>
 <table class="table table-hover align-middle">
   <thead class="table-light">
     <?php if(!$need): ?>
-    <tr><th>#</th><th>Photo</th><th>Name</th><th>Brand</th><th>Type</th><th>Daily Price</th><th>Status</th><th>Created</th><th class="text-end">Actions</th></tr>
+    <tr>
+      <th>#</th>
+      <th>Photo</th>
+      <th><?= sort_link('name','Name') ?></th>
+      <th><?= sort_link('brand','Brand') ?></th>
+      <th><?= sort_link('type','Type') ?></th>
+      <th><?= sort_link('daily_price','Daily Price') ?></th>
+      <th><?= sort_link('status','Status') ?></th>
+      <th><?= sort_link('created_at','Created') ?></th>
+      <th class="text-end">Actions</th>
+    </tr>
     <?php else: ?>
-    <tr><th>#</th><th>Photo</th><th>Name</th><th>Brand</th><th>Type</th><th>Problem</th><th>Status</th><th>Created</th><th class="text-end">Action</th></tr>
+    <tr>
+      <th>#</th>
+      <th>Photo</th>
+      <th><?= sort_link('name','Name') ?></th>
+      <th><?= sort_link('brand','Brand') ?></th>
+      <th><?= sort_link('type','Type') ?></th>
+      <th>Problem</th>
+      <th><?= sort_link('status','Status') ?></th>
+      <th><?= sort_link('created_at','Created') ?></th>
+      <th class="text-end">Action</th>
+    </tr>
     <?php endif; ?>
   </thead>
   <tbody>
@@ -500,17 +560,26 @@ foreach($cameras as $cam):
               <div class="row g-3">
                 <div class="col-md-6">
                   <label class="form-label">Product Category</label>
-                  <select class="form-select" name="type" id="ep_category_<?= (int)$cid ?>">
-                    <?php
-                      $opts = ['Mirrorless','DSLR','Action Cam','Camcorder','Lens'];
-                      $sel = (string)($cam['type'] ?? '');
-                      echo '<option value="">Category</option>';
-                      foreach($opts as $o){
-                        $s = $sel===$o ? 'selected' : '';
-                        echo '<option '.$s.'>'.e($o).'</option>';
-                      }
-                    ?>
-                  </select>
+                    <select class="form-select" name="type" id="ep_category_<?= (int)$cid ?>">
+                      <?php
+                        // Hanya 4 kategori baru
+                        $opts = ['Analog','Digicam','DSLR','Mirrorless'];
+                        $sel  = (string)($cam['type'] ?? '');
+
+                        echo '<option value="">Category</option>';
+
+                        // Jika data lama (mis. "Action Cam", "Lens", dll) masih ada di DB,
+                        // tampilkan sebagai fallback agar data tidak hilang saat edit.
+                        if ($sel !== '' && !in_array($sel, $opts, true)) {
+                          echo '<option selected>'.e($sel).'</option>';
+                        }
+
+                        foreach ($opts as $o) {
+                          $s = ($sel === $o) ? 'selected' : '';
+                          echo '<option '.$s.'>'.e($o).'</option>';
+                        }
+                      ?>
+                    </select>
                 </div>
                 <div class="col-md-6">
                   <label class="form-label">Brand</label>
@@ -603,7 +672,17 @@ foreach($cameras as $cam):
             const countEl=$("#ep_count_<?= (int)$cid ?>");
 
             function setHero(src){ if(src){ heroImg.src=src; heroImg.style.display="block"; ph.style.display="none"; } else { heroImg.style.display="none"; ph.style.display="flex"; } }
-            function buildPvThumbs(urls){ pvThumbs.innerHTML=""; urls.slice(0,4).forEach((u,i)=>{ const d=document.createElement("div"); d.className="pv-thumb"; d.style.backgroundImage=`url(${u})`; d.title="Photo "+(i+1); d.addEventListener("click",()=>setHero(u)); pvThumbs.appendChild(d); }); }
+            function buildPvThumbs(urls){
+              pvThumbs.innerHTML = "";
+              urls.slice(0, <?= MAX_IMAGES_PER_PRODUCT ?>).forEach((u, i) => {
+                const d = document.createElement("div");
+                d.className = "pv-thumb";
+                d.style.backgroundImage = `url(${u})`;
+                d.title = "Photo " + (i + 1);
+                d.addEventListener("click", () => setHero(u));
+                pvThumbs.appendChild(d);
+              });
+            }
             function getServerUrlsFromDom(){
               return Array.from(serverWrap.querySelectorAll(".np-thumb")).map(el=>{
                 const bg=getComputedStyle(el).backgroundImage||""; const m=bg.match(/url\(["']?(.*?)["']?\)/i); return m?m[1]:null;
@@ -677,6 +756,22 @@ endforeach;
 ?>
   </tbody>
 </table>
+<?php
+$totalPages = (int)ceil($total / $per);
+if ($totalPages > 1):
+  $prev = ($pageNo > 1) ? build_qs(['p'=>$pageNo-1]) : null;
+  $next = ($pageNo < $totalPages) ? build_qs(['p'=>$pageNo+1]) : null;
+?>
+  <div class="d-flex justify-content-between align-items-center mt-2">
+    <div class="small text-muted">
+      Page <?= (int)$pageNo ?> / <?= (int)$totalPages ?> • Showing <?= (int)min($per, $total - $offset) ?> of <?= (int)$total ?> items
+    </div>
+    <div class="d-flex gap-2">
+      <a class="btn btn-outline-secondary btn-sm <?= $prev?'':'disabled' ?>" href="<?= e($prev ?? '#') ?>">« Prev</a>
+      <a class="btn btn-outline-secondary btn-sm <?= $next?'':'disabled' ?>" href="<?= e($next ?? '#') ?>">Next »</a>
+    </div>
+  </div>
+<?php endif; ?>
 </div>
 
 <!-- Edit Modals (hasil buffer) -->
@@ -721,7 +816,7 @@ endforeach;
             <div class="mb-3"><label class="form-label">Product Price</label><input class="form-control" id="np_daily_price_view" placeholder="Rp 500.000" inputmode="numeric" autocomplete="off" required><div class="np-note">Per day. Saved as a number.</div></div>
 
             <div class="row g-3">
-              <div class="col-md-6"><label class="form-label">Product Category</label><select class="form-select" name="type" id="np_category"><option value="">Category</option><option>Mirrorless</option><option>DSLR</option><option>Action Cam</option><option>Camcorder</option><option>Lens</option></select></div>
+              <div class="col-md-6"><label class="form-label">Product Category</label><select class="form-select" name="type" id="np_category"><option value="">Category</option><option>Analog</option><option>Digicam</option><option>DLSR</option><option>Mirrorless</option></select></div>
               <div class="col-md-6"><label class="form-label">Brand</label><input class="form-control" name="brand" id="np_brand" required></div>
               <div class="col-md-6"><label class="form-label">Status</label><select class="form-select" name="status" id="np_status"><option value="available">Available</option><option value="unavailable">Unavailable</option><option value="maintenance">Maintenance</option></select></div>
             </div>
@@ -742,7 +837,7 @@ endforeach;
             </div><img id="np_pv_img" alt="" style="display:none;"></div>
             <div class="pv-thumbs" id="np_pv_thumbs"></div>
             <div class="pv-name" id="np_pv_name">—</div>
-            <div class="pv-sub" id="np_pv_sub">Mirrorless</div>
+            <div class="pv-sub" id="np_pv_sub">Category</div>
             <div class="pv-price"><span class="rp" id="np_pv_price">Rp 0</span> <span class="text-muted">/hari</span></div>
             <ul class="pv-list" id="np_pv_list"></ul>
             <div class="pv-cta"><button type="button" class="btn btn-primary btn-sm" disabled>Add to cart</button></div>
@@ -779,7 +874,7 @@ endforeach;
 
           // Name/Category mirror
           const name=$('#np_name'); const pvName=document.getElementById('np_pv_name'); name?.addEventListener('input',()=>{ pvName.textContent=name.value||'—'; });
-          const cat=$('#np_category'); const pvSub=document.getElementById('np_pv_sub'); cat?.addEventListener('change',()=>{ pvSub.textContent=cat.value||'Mirrorless'; });
+          const cat=$('#np_category'); const pvSub=document.getElementById('np_pv_sub'); cat?.addEventListener('change',()=>{ pvSub.textContent=cat.value||'Category'; });
 
           // Desc → UL
           const desc=$('#np_desc'); const pvList=document.getElementById('np_pv_list');

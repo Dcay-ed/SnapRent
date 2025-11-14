@@ -28,7 +28,7 @@ $username = $_SESSION['uname'] ?? '';
 <header class="header">
   <div class="container header-inner">
     <div class="brand">
-      <img src="images/logo.png" alt="SnapRent logo">
+      <img src="auth/images/logo.png" alt="SnapRent logo">
       <div></div><!-- spacer untuk scaling logo -->
     </div>
 

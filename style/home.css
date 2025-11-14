@@ -19,7 +19,7 @@ a{text-decoration:none;color:inherit}
 
 /* ================= Header ================= */
 .header {
-  position: relative;
+  position: fixed;
   top: 0;
   left: 0;
   width: 100%;
@@ -33,12 +33,12 @@ a{text-decoration:none;color:inherit}
 
 /* === SnapRent logo: besar tanpa mengubah tinggi header === */
 .header .brand{
-  --logoSize: 38px;
-  --logoScale: 2.8;
+  --logoSize: 38px;      /* ukuran box asli (jangan diubah) */
+  --logoScale: 2.8;      /* ubah angka ini untuk besarnya logo (1 = normal) */
   position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 10px;             /* jarak ke nav tetap rapi */
 }
 
 .header .brand img{
@@ -47,109 +47,84 @@ a{text-decoration:none;color:inherit}
   border-radius: 50%;
   object-fit: cover;
   transform: scale(var(--logoScale));
-  transform-origin: left center;
+  transform-origin: left center;   /* membesar ke kanan, tidak mendorong header */
   will-change: transform;
 }
 
-.header .brand > div:last-child{width: calc(var(--logoSize) * (var(--logoScale) - 1)); height: 1px;}
+.header .brand > div:last-child{width: calc(var(--logoSize) * (var(--logoScale) - 1)); height: 1px; /* tidak mengubah tinggi header */}
 
 /* Header layout */
 .header-inner{
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 32px;
   padding: 14px 0;
 }
 
 /* Group nav + auth/actions */
-.mid{
+.mid {
   flex: 1;
   display: flex;
   align-items: center;
-  justify-content: center; /* Pusatkan nav */
-  gap: 40px; /* Beri jarak antara nav dan auth */
+  justify-content: center; /* posisi kiri */
+  gap: 40px;
   position: relative;
 }
 
-/* Navigation dengan animasi indicator */
+/* ================= Minimal Header Navigation ================= */
 .nav {
   position: relative;
   display: flex;
-  gap: 10px; /* Kurangi gap untuk lebih compact */
-  background: rgba(255, 255, 255, 0.1);
-  padding: 8px;
-  border-radius: 16px;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  margin: 0 auto; /* Pusatkan nav */
+  align-items: center;
+  gap: 24px;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  margin-left: -130px;
 }
 
+/* Garis bawah indikator aktif */
 .nav-indicator {
-  position: absolute;
-  left: 6px;
-  top: 6px;
-  height: calc(100% - 12px);
-  background: #ffffff;
-  border-radius: 999px;
-  box-shadow: 0 4px 12px rgba(116, 75, 75, 0.25);
-  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  z-index: 1;
-  will-change: transform, width;
+  display: none !important;
 }
 
+
+/* Link nav */
 .nav-link {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 12px 20px;
-  text-decoration: none;
-  color: #6c7e90;
-  border-radius: 12px;
-  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  overflow: hidden;
+  padding: 8px 2px;
+  font-size: 14px;
+  color: #ffffff;
+  opacity: 1;
+  transition: color .25s ease, opacity .25s ease, transform .25s ease;
 }
 
-.nav-link::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(47, 128, 237, 0.1), transparent);
-  transition: left 0.6s ease;
+/* Hilangkan efek glow/ripple lama */
+.nav-link::before,
+.nav-link::after {
+  display: none !important;
 }
 
-.nav-link:hover::before {
-  left: 100%;
-}
-
+/* Hover minimalis */
 .nav-link:hover {
   opacity: 1;
   transform: translateY(-1px);
 }
 
+/* State aktif */
 .nav-link.active {
-  color: var(--slate);
-  opacity: 1;
-  font-weight: 600;
+  background: none !important;
+  box-shadow: none !important;
 }
 
-.nav a {
-  position: relative;
-  z-index: 2;
-  padding: 8px 14px;
-  border-radius: 999px;
-  font-size: 13px;
-  color: #f8fafc;
-  opacity: .9;
-  transition: all 0.3s ease;
-}
 
-.nav a.active {
-  color: var(--slate);
+/* Pindahkan garis bawah mengikuti item aktif */
+.nav a.active ~ .nav-indicator {
+  width: 100%;
+  transform: translateX(var(--active-x, 0));
 }
 
 /* Auth buttons */
@@ -196,15 +171,16 @@ a{text-decoration:none;color:inherit}
 }
 
 .auth .btn-light:hover{
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow);  
   transform: translateY(-1px);
 }
 
 /* Actions (Cart, Notification, Account) */
-.actions {
+.action {
+  margin-left: auto; /* dorong ke kanan */
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
 }
 
 .icon-btn{
