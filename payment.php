@@ -64,7 +64,7 @@ if (!$camera) {
   exit;
 }
 
-/* ===================== HITUNG HARI & TOTAL ===================== */
+/* ===================== HITUNG HARI & TOTAL (+ DISKON 15% JIKA 7+ HARI) ===================== */
 try {
   $start_dt = new DateTime($start_raw);
   $end_dt   = new DateTime($end_raw);
@@ -86,8 +86,15 @@ $daily_rate = (int)round((float)$camera['daily_price']); // contoh: "120000.00" 
 // deposit bisa kamu ubah nanti kalau sudah ada aturan di DB
 $security_deposit = 50000;
 
-// total
-$total = ($daily_rate * $days) + $security_deposit;
+// SUBTOTAL: sebelum diskon
+$subtotal = $daily_rate * $days;
+
+// DISKON 15% kalau sewa 7 hari atau lebih
+$discount_rate   = ($days >= 7) ? 0.15 : 0;
+$discount_amount = (int)round($subtotal * $discount_rate);
+
+// TOTAL: subtotal - diskon + deposit
+$total = $subtotal - $discount_amount + $security_deposit;
 
 // format tanggal untuk tampilan
 $start_date = $start_dt->format('M d, Y');
@@ -447,6 +454,35 @@ function formatRupiah($amount) {
     </style>
 </head>
 <body>
+<div id="loadingOverlay" 
+     style="
+        position: fixed;
+        top:0; left:0;
+        width:100%; height:100%;
+        background: rgba(255,255,255,0.85);
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        font-size:22px;
+        color:#333;
+        z-index:9999;
+        display:none;
+     ">
+    <div style="text-align:center;">
+        <div class="loader" 
+             style="
+                border:6px solid #f3f3f3;
+                border-top:6px solid #333;
+                border-radius:50%;
+                width:50px;
+                height:50px;
+                animation:spin 1s linear infinite;
+                margin:0 auto 15px auto;
+             ">
+        </div>
+        Processing your payment...
+    </div>
+</div>
     <!-- Animated background elements -->
     <div class="bg-element"></div>
     <div class="bg-element"></div>
@@ -497,8 +533,16 @@ function formatRupiah($amount) {
             <div class="summary-list">
                 <div class="summary-row">
                     <span class="summary-label">Daily rate x <?= (int)$days ?> days</span>
-                    <span class="summary-value"><?= formatRupiah($daily_rate * $days) ?></span>
+                    <span class="summary-value"><?= formatRupiah($subtotal) ?></span>
                 </div>
+
+                <?php if ($discount_amount > 0): ?>
+                <div class="summary-row">
+                    <span class="summary-label">Weekly Discount (15% for 7+ days)</span>
+                    <span class="summary-value">-<?= formatRupiah($discount_amount) ?></span>
+                </div>
+                <?php endif; ?>
+
                 <div class="summary-row">
                     <span class="summary-label">Rental Period</span>
                     <span class="summary-value"><?= (int)$days ?> Days</span>
@@ -522,6 +566,14 @@ function formatRupiah($amount) {
                     <span class="summary-label">Daily Rate</span>
                     <span class="summary-value"><?= formatRupiah($daily_rate) ?></span>
                 </div>
+
+                <?php if ($discount_amount > 0): ?>
+                <div class="summary-row">
+                    <span class="summary-label">Weekly Discount (7+ days)</span>
+                    <span class="summary-value">-<?= formatRupiah($discount_amount) ?></span>
+                </div>
+                <?php endif; ?>
+
                 <div class="summary-row">
                     <span class="summary-label">Security Deposit</span>
                     <span class="summary-value"><?= formatRupiah($security_deposit) ?></span>
@@ -544,13 +596,31 @@ function formatRupiah($amount) {
         
         <!-- Continue Button -->
         <div class="button-container">
-            <!-- Nanti bisa diganti ke confirmation.php / proses pembayaran beneran -->
-            <button class="continue-button"
-                    onclick="window.location.href='receipt.php?<?= htmlspecialchars($query, ENT_QUOTES, 'UTF-8') ?>'">
+            <button class="continue-button" onclick="goToPayment()">
                 Continue to Payment
             </button>
         </div>
+    <script>
+function goToPayment() {
+    // Tampilkan overlay loading
+    document.getElementById('loadingOverlay').style.display = 'flex';
 
+    // Redirect setelah 1.5 detik
+    setTimeout(() => {
+        window.location.href = "receipt.php?<?= $query ?>";
+    }, 1500);
+}
+
+// animasi spinner
+const style = document.createElement('style');
+style.innerHTML = `
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+`;
+document.head.appendChild(style);
+</script>
     </div>
 </body>
 </html>

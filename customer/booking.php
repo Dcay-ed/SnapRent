@@ -13,7 +13,17 @@ if (!isset($_SESSION['user'])) {
     <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
-    <?php include 'header.php'; ?>
+        <header>
+        <div class="logo">
+            <i class="fas fa-camera"></i>
+            <span>SnapRent</span>
+        </div>
+        <div class="header-icons">
+            <a href="#" class="icon"><i class="far fa-user-circle"></i></a>
+            <a href="#" class="icon"><i class="far fa-bell"></i><span class="badge">3</span></a>
+            <a href="#" class="icon"><i class="fas fa-shopping-cart"></i></a>
+        </div>
+    </header>
     <div class="container">
         <aside class="sidebar">
             <nav>

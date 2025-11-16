@@ -480,9 +480,10 @@ $query = http_build_query($params);
         </div>
         
         <div class="next-button-container">
-            <button id="nextButton" class="next-button" onclick="window.location.href='payment.php?<?= e($query) ?>'">
-                Next <i class="fa-solid fa-arrow-right"></i>
-            </button>
+            <button id="nextButton" class="next-button" disabled
+        onclick="window.location.href='payment.php?<?= e($query) ?>'">
+    Next <i class="fa-solid fa-arrow-right"></i>
+</button>
         </div>
     </div>
 

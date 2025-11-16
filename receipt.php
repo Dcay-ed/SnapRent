@@ -224,6 +224,10 @@ $transaction = [
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Payment Confirmation - SnapRent</title>
+
+    <!-- Library html2pdf.js via CDN (untuk download PDF di client-side) -->
+    <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
+
     <style>
         * {
             margin: 0;
@@ -437,7 +441,7 @@ $transaction = [
 
         .footer-card {
             max-width: 600px;
-            margin: 0 auto;
+            margin: 0 auto 40px;
             background: white;
             border-radius: 20px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
@@ -480,115 +484,142 @@ $transaction = [
     </style>
 </head>
 <body>
-    <!-- Progress Step -->
-    <div class="header-step">
-        <div class="step">
-            <div class="step-circle completed">✓</div>
-            <span class="step-label completed">Payment Method</span>
+    <!-- WRAPPER UNTUK KONTEN YANG DIJADIKAN PDF -->
+    <div id="receipt-page">
+        <!-- Progress Step -->
+        <div class="header-step">
+            <div class="step">
+                <div class="step-circle completed">✓</div>
+                <span class="step-label completed">Payment Method</span>
+            </div>
+            <div class="step-line completed"></div>
+            <div class="step">
+                <div class="step-circle completed">✓</div>
+                <span class="step-label completed">Checkout</span>
+            </div>
+            <div class="step-line"></div>
+            <div class="step">
+                <div class="step-circle current">3</div>
+                <span class="step-label current">Confirmation</span>
+            </div>
         </div>
-        <div class="step-line completed"></div>
-        <div class="step">
-            <div class="step-circle completed">✓</div>
-            <span class="step-label completed">Checkout</span>
+
+        <!-- Success Banner -->
+        <div class="success-banner">
+            <div class="success-icon">✓</div>
+            <h1 class="success-title">Payment Successful!</h1>
+            <p class="success-subtitle">Your camera rental has been confirmed</p>
+            <p class="success-date">
+                Transaction completed securely on <?php echo htmlspecialchars($transaction['date_time'], ENT_QUOTES, 'UTF-8'); ?>
+            </p>
         </div>
-        <div class="step-line"></div>
-        <div class="step">
-            <div class="step-circle current">3</div>
-            <span class="step-label current">Confirmation</span>
-        </div>
-    </div>
 
-    <!-- Success Banner -->
-    <div class="success-banner">
-        <div class="success-icon">✓</div>
-        <h1 class="success-title">Payment Successful!</h1>
-        <p class="success-subtitle">Your camera rental has been confirmed</p>
-        <p class="success-date">
-            Transaction completed securely on <?php echo htmlspecialchars($transaction['date_time'], ENT_QUOTES, 'UTF-8'); ?>
-        </p>
-    </div>
+        <!-- Receipt Card -->
+        <div class="receipt-card">
+            <div class="receipt-header">
+                <div class="logo">SNAPRENT</div>
+                <div class="receipt-subtitle">ORDER SUMMARY</div>
+            </div>
+            <div class="receipt-body">
+                <div class="receipt-row">
+                    <span class="label">Order Number:</span>
+                    <span class="value"><?php echo htmlspecialchars($transaction['order_number'], ENT_QUOTES, 'UTF-8'); ?></span>
+                </div>
+                <div class="receipt-row">
+                    <span class="label">Customer Name:</span>
+                    <span class="value"><?php echo htmlspecialchars($transaction['customer_name'], ENT_QUOTES, 'UTF-8'); ?></span>
+                </div>
 
-    <!-- Receipt Card -->
-    <div class="receipt-card">
-        <div class="receipt-header">
-            <div class="logo">SNAPRENT</div>
-            <div class="receipt-subtitle">ORDER SUMMARY</div>
-        </div>
-        <div class="receipt-body">
-            <div class="receipt-row">
-                <span class="label">Order Number:</span>
-                <span class="value"><?php echo htmlspecialchars($transaction['order_number'], ENT_QUOTES, 'UTF-8'); ?></span>
-            </div>
-            <div class="receipt-row">
-                <span class="label">Customer Name:</span>
-                <span class="value"><?php echo htmlspecialchars($transaction['customer_name'], ENT_QUOTES, 'UTF-8'); ?></span>
-            </div>
+                <div class="section-title">Item Details</div>
+                <div class="receipt-row">
+                    <span><?php echo htmlspecialchars($transaction['item'], ENT_QUOTES, 'UTF-8'); ?></span>
+                </div>
+                <div class="receipt-row">
+                    <span class="label">Rental Period:</span>
+                    <span class="value"><?php echo htmlspecialchars($transaction['rental_period'], ENT_QUOTES, 'UTF-8'); ?></span>
+                </div>
+                <div class="receipt-row">
+                    <span class="label">Price per Day:</span>
+                    <span class="value"><?php echo htmlspecialchars($transaction['price_per_day'], ENT_QUOTES, 'UTF-8'); ?></span>
+                </div>
+                <div class="receipt-row">
+                    <span class="label">Total:</span>
+                    <span class="value"><?php echo htmlspecialchars($transaction['total'], ENT_QUOTES, 'UTF-8'); ?></span>
+                </div>
 
-            <div class="section-title">Item Details</div>
-            <div class="receipt-row">
-                <span><?php echo htmlspecialchars($transaction['item'], ENT_QUOTES, 'UTF-8'); ?></span>
-            </div>
-            <div class="receipt-row">
-                <span class="label">Rental Period:</span>
-                <span class="value"><?php echo htmlspecialchars($transaction['rental_period'], ENT_QUOTES, 'UTF-8'); ?></span>
-            </div>
-            <div class="receipt-row">
-                <span class="label">Price per Day:</span>
-                <span class="value"><?php echo htmlspecialchars($transaction['price_per_day'], ENT_QUOTES, 'UTF-8'); ?></span>
-            </div>
-            <div class="receipt-row">
-                <span class="label">Total:</span>
-                <span class="value"><?php echo htmlspecialchars($transaction['total'], ENT_QUOTES, 'UTF-8'); ?></span>
-            </div>
+                <div class="section-title">Payment Details</div>
+                <div class="receipt-row">
+                    <span class="label">Payment Method:</span>
+                    <span class="value"><?php echo htmlspecialchars($transaction['payment_method'], ENT_QUOTES, 'UTF-8'); ?></span>
+                </div>
+                <div class="receipt-row">
+                    <span class="label">Payment Status:</span>
+                    <span class="value"><?php echo htmlspecialchars($transaction['payment_status'], ENT_QUOTES, 'UTF-8'); ?></span>
+                </div>
+                <div class="receipt-row">
+                    <span class="label">Transaction ID:</span>
+                    <span class="value"><?php echo htmlspecialchars($transaction['transaction_id'], ENT_QUOTES, 'UTF-8'); ?></span>
+                </div>
 
-            <div class="section-title">Payment Details</div>
-            <div class="receipt-row">
-                <span class="label">Payment Method:</span>
-                <span class="value"><?php echo htmlspecialchars($transaction['payment_method'], ENT_QUOTES, 'UTF-8'); ?></span>
-            </div>
-            <div class="receipt-row">
-                <span class="label">Payment Status:</span>
-                <span class="value"><?php echo htmlspecialchars($transaction['payment_status'], ENT_QUOTES, 'UTF-8'); ?></span>
-            </div>
-            <div class="receipt-row">
-                <span class="label">Transaction ID:</span>
-                <span class="value"><?php echo htmlspecialchars($transaction['transaction_id'], ENT_QUOTES, 'UTF-8'); ?></span>
-            </div>
-
-            <button class="btn btn-primary">Download PDF Receipt</button>
-
-            <div style="display: flex; justify-content: center; gap: 10px;">
-                <button class="btn btn-primary btn-print">
-                    <span class="icon-print">🖨️</span> Print Receipt
+                <!-- TOMBOL DOWNLOAD PDF MENGGUNAKAN html2pdf.js -->
+                <button type="button" class="btn btn-primary" id="btn-download-pdf">
+                    Download PDF Receipt
                 </button>
-                <button class="btn btn-secondary btn-new">
-                    <span class="icon-plus">➕</span> New Rental
-                </button>
+
+                <div style="display: flex; justify-content: center; gap: 10px;">
+                    <button class="btn btn-primary btn-print">
+                        <span class="icon-print">🖨️</span> Print Receipt
+                    </button>
+                    <button class="btn btn-secondary btn-new">
+                        <span class="icon-plus">➕</span> New Rental
+                    </button>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- Footer Card -->
-    <div class="footer-card">
-        <div class="footer-title">THANK YOU FOR RENTING WITH US!</div>
-        <div class="footer-contact">
-            <strong>LENSPOINT CAMERA RENTAL</strong><br>    
-            Jl. Studio Raya No. 45, Jakarta<br>
-            Contact: +62 812 3456 7890
+        <!-- Footer Card -->
+        <div class="footer-card">
+            <div class="footer-title">THANK YOU FOR RENTING WITH US!</div>
+            <div class="footer-contact">
+                <strong>LENSPOINT CAMERA RENTAL</strong><br>    
+                Jl. Studio Raya No. 45, Jakarta<br>
+                Contact: +62 812 3456 7890
+            </div>
+            <div class="secure-note">
+                🔒 Your payment is processed securely
+            </div>
         </div>
-        <div class="secure-note">
-            🔒 Your payment is processed securely
-        </div>
-    </div>
+    </div> <!-- /#receipt-page -->
 
     <script>
+        // Tombol Print
         document.querySelector('.btn-print').addEventListener('click', function() {
             window.print();
         });
 
+        // Tombol New Rental
         document.querySelector('.btn-new').addEventListener('click', function() {
-             window.location.href = 'index-cameras.php';
+            window.location.href = 'index-cameras.php';
         });
+
+        // Tombol Download PDF (html2pdf.js) - 1 layar penuh (#receipt-page)
+        const btnDownload = document.getElementById('btn-download-pdf');
+        if (btnDownload && typeof html2pdf !== 'undefined') {
+            btnDownload.addEventListener('click', function () {
+                const element = document.getElementById('receipt-page');
+                if (!element) return;
+
+                const opt = {
+                    margin:       5,
+                    filename:     'SnapRent-Receipt-<?php echo $order_number; ?>.pdf',
+                    image:        { type: 'jpeg', quality: 0.98 },
+                    html2canvas:  { scale: 2, scrollY: 0 },
+                    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                };
+
+                html2pdf().set(opt).from(element).save();
+            });
+        }
     </script>
 </body>
 </html>

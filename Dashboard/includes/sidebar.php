@@ -1,3 +1,11 @@
+<?php
+// Pastikan session aktif supaya bisa baca role
+if (session_status() === PHP_SESSION_NONE) {
+  session_start();
+}
+
+$userRole = $_SESSION['role'] ?? '';
+?>
 <!-- Sidebar -->
 <aside class="sidebar">
   <div class="logo" 
@@ -9,26 +17,33 @@
 
   <nav class="menu">
     <p class="menu-title">Menu</p>
+
     <a href="?page=dashboard" class="menu-item <?= $page==='dashboard'?'active':'' ?>">
       <i class="fas fa-th-large"></i>
       <span>Dashboard</span>
     </a>
+
     <a href="?page=products" class="menu-item <?= $page==='products'?'active':'' ?>">
       <i class="fas fa-box"></i>
       <span>Product</span>
     </a>
+
     <a href="?page=orders" class="menu-item <?= $page==='orders'?'active':'' ?>">
       <i class="fas fa-camera"></i>
       <span>Rentals</span>
     </a>
+
     <a href="?page=reports" class="menu-item <?= $page==='reports'?'active':'' ?>">
       <i class="fas fa-chart-bar"></i>
       <span>Reports</span>
     </a>
+
+    <?php if ($userRole === 'OWNER'): ?>
     <a href="?page=users" class="menu-item <?= $page==='users'?'active':'' ?>">
       <i class="fas fa-user"></i>
       <span>User</span>
     </a>
+    <?php endif; ?>
   </nav>
 
   <div class="logout-section">

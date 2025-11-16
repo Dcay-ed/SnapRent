@@ -1650,29 +1650,32 @@ body.scrolled .header {
   height: 100px;
 }
 
-/* User Menu Enhancements */
-.btn-logout {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: linear-gradient(135deg, #e74c3c, #c0392b) !important;
-  padding: 10px 20px;
+
+/* Logout icon button */
+.logout-btn {
+  width: 36px;
+  height: 36px;
   border-radius: 12px;
-  transition: all 0.3s ease !important;
+  display: grid;
+  place-items: center;
+  background: rgba(255,255,255,0.10);
+  border: 1px solid rgba(255,255,255,0.18);
+  cursor: pointer;
+  transition: all 0.25s ease;
+} 
+
+.logout-btn:hover {
+  background: rgba(255,255,255,0.22);
+  transform: translateY(-2px);
 }
 
-.btn-logout:hover {
-  transform: translateY(-2px) scale(1.05);
-  box-shadow: 0 8px 20px rgba(231, 76, 60, 0.4) !important;
+.logout-btn img {
+  width: 22px;       /* ukuran icon */
+  height: 22px;
+  display: block;
+  object-fit: contain;
 }
 
-.logout-icon {
-  transition: transform 0.3s ease;
-}
-
-.btn-logout:hover .logout-icon {
-  transform: rotate(15deg);
-}
 
 /* Responsive Design */
 @media (max-width: 768px) {
@@ -1766,3 +1769,4 @@ html {
     font-size: 12px;
   }
 }
+

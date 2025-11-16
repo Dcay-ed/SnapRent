@@ -77,10 +77,9 @@ $username = $_SESSION['uname'] ?? '';
             </button>
 
             <!-- Logout Button -->
-            <a href="auth/logout.php" class="btn btn-logout">
-              <span class="logout-icon">🚪</span>
-              Logout
-            </a>
+          <a href="customer/index.php" class="icon-btn logout-btn" title="Customer Dashboard">
+            <img src="../style/Group.png" alt="logout icon">
+          </a>
           </div>
         <?php else: ?>
           <!-- Notification & Cart Buttons for non-logged in users -->

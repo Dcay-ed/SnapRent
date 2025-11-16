@@ -1,7 +1,8 @@
 <?php
 // ======================================================================
 // dashboard.php — SnapRent Admin Dashboard (UI sesuai mockup, siap pakai)
-// Catatan: TOP RENTED pakai gambar dari table camera_images
+// - Total Revenue & chart revenue diambil dari rentals.total_price
+// - Top Rented pakai gambar dari table camera_images
 // Asumsi $pdo (PDO) sudah tersedia dari bootstrap/index.
 // ======================================================================
 
@@ -30,38 +31,49 @@ $prev_start  = (new DateTime($start_month))->modify('first day of previous month
 $prev_end    = (new DateTime($start_month))->modify('last day of previous month 23:59:59')->format('Y-m-d H:i:s');
 
 
-// ===== KPIs (tetap sesuai punyamu)
+// ===== KPIs
+
+// Total sales = jumlah rentals (order) bulan ini
 $stmt = $pdo->prepare("SELECT COUNT(*) FROM rentals WHERE created_at BETWEEN ? AND ?");
 $stmt->execute([$start_month,$end_month]);
 $total_sales = (int)$stmt->fetchColumn();
 
-
+// Total sales bulan lalu
 $stmt = $pdo->prepare("SELECT COUNT(*) FROM rentals WHERE created_at BETWEEN ? AND ?");
 $stmt->execute([$prev_start,$prev_end]);
 $total_sales_prev = (int)$stmt->fetchColumn();
 
-
-$stmt = $pdo->prepare("SELECT COALESCE(SUM(amount),0) FROM payments WHERE status='verified' AND paid_at BETWEEN ? AND ?");
+// Total revenue dari rentals.total_price (status: confirmed/ongoing/completed)
+$stmt = $pdo->prepare("
+  SELECT COALESCE(SUM(total_price),0)
+  FROM rentals
+  WHERE status IN ('confirmed','ongoing','completed')
+    AND created_at BETWEEN ? AND ?
+");
 $stmt->execute([$start_month,$end_month]);
 $total_revenue = (float)$stmt->fetchColumn();
 
-
-$stmt = $pdo->prepare("SELECT COALESCE(SUM(amount),0) FROM payments WHERE status='verified' AND paid_at BETWEEN ? AND ?");
+// Total revenue bulan lalu
+$stmt = $pdo->prepare("
+  SELECT COALESCE(SUM(total_price),0)
+  FROM rentals
+  WHERE status IN ('confirmed','ongoing','completed')
+    AND created_at BETWEEN ? AND ?
+");
 $stmt->execute([$prev_start,$prev_end]);
 $total_revenue_prev = (float)$stmt->fetchColumn();
 
-
+// New customers
 $stmt = $pdo->prepare("SELECT COUNT(*) FROM accounts WHERE role='CUSTOMER' AND created_at BETWEEN ? AND ?");
 $stmt->execute([$start_month,$end_month]);
 $new_customers = (int)$stmt->fetchColumn();
-
 
 $stmt = $pdo->prepare("SELECT COUNT(*) FROM accounts WHERE role='CUSTOMER' AND created_at BETWEEN ? AND ?");
 $stmt->execute([$prev_start,$prev_end]);
 $new_customers_prev = (int)$stmt->fetchColumn();
 
 
-// Percentage calculation (tetap)
+// Percentage calculation
 $pct = function($cur,$prev){
   if ($prev<=0 && $cur>0) return '+100%';
   if ($prev===$cur) return '0%';
@@ -74,7 +86,7 @@ $mom_rev   = $pct($total_revenue,$total_revenue_prev);
 $mom_cust  = $pct($new_customers,$new_customers_prev);
 
 
-// Weekly data for chart (tetap)
+// Weekly data for chart (4 minggu)
 $labels = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
 $map = [
   'Week 1' => ['rev'=>0,'ord'=>0],
@@ -83,8 +95,14 @@ $map = [
   'Week 4' => ['rev'=>0,'ord'=>0]
 ];
 
-
-$q = $pdo->prepare("SELECT DATE(paid_at) d, SUM(amount) amt FROM payments WHERE status='verified' AND paid_at BETWEEN ? AND ? GROUP BY DATE(paid_at)");
+// Revenue per day dari rentals.total_price
+$q = $pdo->prepare("
+  SELECT DATE(created_at) AS d, SUM(total_price) AS amt
+  FROM rentals
+  WHERE status IN ('confirmed','ongoing','completed')
+    AND created_at BETWEEN ? AND ?
+  GROUP BY DATE(created_at)
+");
 $q->execute([$start_month,$end_month]);
 foreach($q as $r){
   $weekIdx = min(3, (int)((strtotime($r['d']) - strtotime($start_month)) / (7*86400)));
@@ -92,15 +110,19 @@ foreach($q as $r){
   if (isset($map[$weekLabel])) $map[$weekLabel]['rev'] += (float)$r['amt'];
 }
 
-
-$q = $pdo->prepare("SELECT DATE(created_at) d, COUNT(*) c FROM rentals WHERE created_at BETWEEN ? AND ? GROUP BY DATE(created_at)");
+// Orders per day berdasarkan rentals.created_at
+$q = $pdo->prepare("
+  SELECT DATE(created_at) AS d, COUNT(*) AS c
+  FROM rentals
+  WHERE created_at BETWEEN ? AND ?
+  GROUP BY DATE(created_at)
+");
 $q->execute([$start_month,$end_month]);
 foreach($q as $r){
   $weekIdx = min(3, (int)((strtotime($r['d']) - strtotime($start_month)) / (7*86400)));
   $weekLabel = 'Week ' . ($weekIdx + 1);
   if (isset($map[$weekLabel])) $map[$weekLabel]['ord'] += (int)$r['c'];
 }
-
 
 $rev_series = [];
 $ord_series = [];
@@ -111,7 +133,6 @@ foreach($map as $v){
 
 
 // ===== TOP RENTED (gambar dari camera_images)
-// Ambil 1 gambar per kamera (MIN(id)), lalu ambil filename + camera_id
 $top_rented_stmt = $pdo->prepare("
   SELECT 
     cam.id,
@@ -147,7 +168,7 @@ for ($i = count($top_rented); $i < 3; $i++) {
 }
 
 
-// ===== Recent rentals (STATUS ikut rentals.status)
+// ===== Recent rentals
 $recent_orders = $pdo->prepare(
   "SELECT rn.id,
           rn.created_at,
@@ -173,7 +194,7 @@ $currentAdminName = $currentAdminName
   ?? ($_SESSION['admin_name'] ?? ($_SESSION['username'] ?? 'Name'));
 
 
-// Helper kecil untuk buat URL gambar kamera dari camera_images
+// Helper URL gambar kamera
 $buildCameraImgUrl = function($cameraId, $filename) use ($IMG_URL_BASE) {
   $cameraId = (int)$cameraId;
   $filename = (string)$filename;
@@ -182,7 +203,7 @@ $buildCameraImgUrl = function($cameraId, $filename) use ($IMG_URL_BASE) {
   return $base . '/' . $cameraId . '/' . ltrim($filename, '/');
 };
 ?>
-<!-- ========================= UI (sesuai mockup) ========================= -->
+<!-- ========================= UI ========================= -->
 <style>
 :root{
   --bg:#F2F4F7; --card:#fff; --text:#34343c; --muted:#6b7280;
@@ -192,15 +213,13 @@ $buildCameraImgUrl = function($cameraId, $filename) use ($IMG_URL_BASE) {
 body{background:var(--bg); font-family:"Poppins",system-ui,Segoe UI,Roboto,Arial}
 a{text-decoration:none;color:inherit}
 
-
-/* Main container only (tanpa sidebar, agar mudah di-embed ke layoutmu) */
+/* Main container (tanpa sidebar) */
 .main{padding:28px 30px}
 .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
 .header h1{font-size:28px;font-weight:700;color:var(--text);margin:0}
 .pill{display:inline-flex;align-items:center;gap:10px;background:var(--brand-200);padding:8px 14px;border-radius:19px;font-weight:700;color:#284466;font-size:12px}
 .pill select{border:none;background:transparent;font:inherit;color:inherit;outline:none;cursor:pointer}
 .section-title{font-size:26px;font-weight:700;color:var(--text);margin:22px 0 14px}
-
 
 /* KPI */
 .kpis{display:grid;grid-template-columns:repeat(3,minmax(220px,1fr));gap:18px}
@@ -210,36 +229,27 @@ a{text-decoration:none;color:inherit}
 .badge{display:inline-block;background:var(--brand);color:#fff;font-size:10px;padding:4px 10px;border-radius:16px;margin-left:10px}
 .prev{color:#284466;font-size:13px}
 
-
-/* Middle - Grid 2 kolom sejajar */
+/* Middle - Grid 2 kolom */
 .mid{display:grid;grid-template-columns:1fr 1.1fr;gap:28px;align-items:start}
 
-
 /* Top Rented - Kolom kiri */
-.toprented {
-  padding-left: 10px;  /* Geser seluruh section ke kanan dikit */
+.toprented{padding-left:10px}
+.toprented .section-title{
+  margin-top:35px;
+  margin-bottom:44px;
+  font-size:35px;
 }
-.toprented .section-title {
-  margin-top: 35px;
-  margin-bottom: 44px;
-  font-size: 35px;
-}
-
 .toprented .cards{
   display:flex;
-  gap:22px;                 /* diperkecil supaya 3 kartu muat sejajar */
+  gap:22px;
   align-items:flex-start;
   justify-content:flex-start;
   flex-wrap:wrap;
 }
-
-/* Wrapper untuk card dan badge */
-.rentcard-wrap{ 
-  width:200px;              /* disamakan dengan rentcard */
+.rentcard-wrap{
+  width:200px;
   position:relative;
 }
-
-/* Rentcard */
 .rentcard{
   width:200px;
   height:200px;
@@ -252,21 +262,16 @@ a{text-decoration:none;color:inherit}
   overflow:hidden;
   box-shadow:0 1px 4px rgba(16,24,40,.05);
 }
-
-.rentcard img{ 
-  width:100%; 
-  height:100%; 
-  object-fit:cover; 
-  display:block; 
+.rentcard img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
 }
-
-/* Badge ranking */
 .rank{
   position:absolute;
   top:-8px;
   left:-8px;
-  background:var(--brand);
-  color:#fff;
   min-width:32px;
   height:24px;
   padding:0 8px;
@@ -277,26 +282,14 @@ a{text-decoration:none;color:inherit}
   font-weight:700;
   font-size:11px;
   box-shadow:0 2px 8px rgba(72,119,175,.4);
+  color:#fff;
+  background:var(--brand);
   z-index:10;
 }
-
-/* Warna berbeda per ranking */
-.rentcard-wrap:nth-child(1) .rank{
-  background:#4877AF;
-}
-.rentcard-wrap:nth-child(2) .rank{
-  background:#5F76E8;
-}
-.rentcard-wrap:nth-child(3) .rank{
-  background:#6F89B6;
-}
-
-.rank sup{
-  font-size:8px;
-  margin-left:1px;
-  font-weight:700;
-}
-
+.rentcard-wrap:nth-child(1) .rank{background:#4877AF}
+.rentcard-wrap:nth-child(2) .rank{background:#5F76E8}
+.rentcard-wrap:nth-child(3) .rank{background:#6F89B6}
+.rank sup{font-size:8px;margin-left:1px;font-weight:700}
 .rentname{
   margin-top:8px;
   font-size:15px;
@@ -304,44 +297,37 @@ a{text-decoration:none;color:inherit}
   min-height:40px;
   line-height:1.25;
 }
-
-.rentname strong{
-  font-size:14px;
-}
-
+.rentname strong{font-size:14px}
 
 /* Performance panel - Kolom kanan */
-.mid section:last-child .section-title {
-  margin-top: 30px;
-  margin-bottom: 16px;
-  font-size: 35px;
+.mid section:last-child .section-title{
+  margin-top:30px;
+  margin-bottom:16px;
+  font-size:35px;
 }
 
+/* PANEL – tinggi bisa diubah, chart ikut */
 .panel{
   background:var(--bluepanel);
   border-radius:19px;
-  padding:16px;
+  padding:6px 12px;
   box-shadow:0 2px 8px rgba(16,24,40,.06);
   display:flex;
   flex-direction:column;
-  gap:10px;
-  height:360px;
+  height:430px;          /* UBAH ANGKA INI SESUAI MAU BERAPA TINGGI PANEL */
 }
-
 .panel .canvaswrap{
   flex:1;
   position:relative;
   min-height:0;
+  height:100%;
 }
-
 .panel .canvaswrap canvas{
-  position:absolute !important;
-  top:0;
-  left:0;
+  display:block;
   width:100% !important;
   height:100% !important;
+  max-height:100% !important;
 }
-
 
 /* Recent table */
 .tablewrap{margin-top:24px;background:#fff;border-radius:20px;box-shadow:0 2px 8px rgba(16,24,40,.06);overflow:hidden}
@@ -351,7 +337,6 @@ a{text-decoration:none;color:inherit}
 .status{padding:6px 12px;border-radius:12px;font-size:12px;font-weight:600;color:#fff;text-transform:capitalize;display:inline-block}
 .s-verified{background:#4caf50}.s-pending{background:#ff9800}.s-rejected{background:#f44336}
 
-
 /* Responsive */
 @media (max-width:1200px){ .mid{grid-template-columns:1fr} }
 @media (max-width:768px){
@@ -360,7 +345,6 @@ a{text-decoration:none;color:inherit}
   .trow{grid-template-columns:1fr;gap:6px}
 }
 </style>
-
 
 <div class="main">
   <div class="header">
@@ -378,7 +362,6 @@ a{text-decoration:none;color:inherit}
       </form>
     </div>
   </div>
-
 
   <div class="kpis">
     <div class="kpi">
@@ -398,18 +381,14 @@ a{text-decoration:none;color:inherit}
     </div>
   </div>
 
-
   <div class="mid">
-    <!-- Top Rented - Kolom Kiri -->
+    <!-- Top Rented -->
     <section class="toprented">
       <h2 class="section-title">Top Rented</h2>
       <div class="cards">
         <?php $ordTxt=['st','nd','rd']; foreach ($top_rented as $i=>$t): ?>
           <div class="rentcard-wrap">
-            <!-- Badge di luar rentcard -->
             <div class="rank"><?= $i+1 ?><sup><?= $ordTxt[$i]??'th' ?></sup></div>
-            
-            <!-- Rentcard -->
             <div class="rentcard">
               <?php
                 $rawFilename = $t['img_filename'] ?? '';
@@ -419,14 +398,12 @@ a{text-decoration:none;color:inherit}
               <?php if (!empty($src)): ?>
                 <img src="<?= htmlspecialchars($src) ?>" alt="<?= htmlspecialchars($t['name']) ?>">
               <?php else: ?>
-                <!-- Placeholder icon -->
                 <svg width="38" height="38" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                   <path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" stroke="#9aa7bd" stroke-width="2"/>
                   <path d="M21 15l-5-5-6 6-3-3-4 4" stroke="#9aa7bd" stroke-width="2"/>
                 </svg>
               <?php endif; ?>
             </div>
-            
             <div class="rentname">
               <strong><?= htmlspecialchars($t['name']) ?></strong><br>
               <small><?= (int)$t['cnt'] ?>x rented</small>
@@ -436,8 +413,7 @@ a{text-decoration:none;color:inherit}
       </div>
     </section>
 
-
-    <!-- Performance Overview - Kolom Kanan -->
+    <!-- Performance Overview -->
     <section>
       <h2 class="section-title">Performance Overview</h2>
       <div class="panel">
@@ -447,7 +423,6 @@ a{text-decoration:none;color:inherit}
       </div>
     </section>
   </div>
-
 
   <!-- Recent Rental -->
   <section style="margin-top:22px">
@@ -459,8 +434,6 @@ a{text-decoration:none;color:inherit}
       <?php foreach($recent_orders as $o):
         $inv = str_pad($o['id'],5,'0',STR_PAD_LEFT);
         $statusRaw = strtolower($o['rental_status'] ?? 'pending');
-
-        // Mapping warna badge berdasarkan rentals.status
         $statusClassMap = [
           'pending'   => 's-pending',
           'confirmed' => 's-verified',
@@ -489,6 +462,11 @@ a{text-decoration:none;color:inherit}
 <script>
 const ctx = document.getElementById('performanceChart');
 if (ctx){
+
+  // FIX utama: jangan kunci tinggi/lebar oleh atribut <canvas>
+  ctx.removeAttribute('height');
+  ctx.removeAttribute('width');
+
   const gradientSales = ctx.getContext('2d').createLinearGradient(0, 0, 0, 280);
   gradientSales.addColorStop(0, 'rgba(95, 118, 232, 0.3)');
   gradientSales.addColorStop(1, 'rgba(95, 118, 232, 0.02)');
@@ -511,13 +489,7 @@ if (ctx){
           tension: 0.45,
           borderWidth: 3,
           pointRadius: 0,
-          pointHoverRadius: 8,
-          pointBackgroundColor: '#5F76E8',
-          pointBorderColor: '#ffffff',
-          pointBorderWidth: 3,
-          pointHoverBackgroundColor: '#5F76E8',
-          pointHoverBorderColor: '#ffffff',
-          pointHoverBorderWidth: 3
+          pointHoverRadius: 0
         },
         { 
           label:'Total Revenue',
@@ -528,26 +500,16 @@ if (ctx){
           tension: 0.45,
           borderWidth: 3,
           pointRadius: 0,
-          pointHoverRadius: 8,
-          pointBackgroundColor: '#FF6B81',
-          pointBorderColor: '#ffffff',
-          pointBorderWidth: 3,
-          pointHoverBackgroundColor: '#FF6B81',
-          pointHoverBorderColor: '#ffffff',
-          pointHoverBorderWidth: 3
+          pointHoverRadius: 0
         }
       ]
     },
     options:{
-      responsive: true,
-      maintainAspectRatio: false,
+      responsive:true,
+      maintainAspectRatio:false,
+      devicePixelRatio:1,
       layout: {
-        padding: {
-          top: 10,
-          right: 15,
-          bottom: 5,
-          left: 5
-        }
+        padding: 0
       },
       interaction: {
         mode: 'index',
@@ -557,30 +519,16 @@ if (ctx){
         legend: {
           display: true,
           position: 'top',
-          align: 'end',
+          align: 'center',
           labels: {
             color: '#ffffff',
-            usePointStyle: true,
-            pointStyle: 'circle',
-            padding: 15,
-            font: {
-              size: 11,
-              family: 'Poppins',
-              weight: '600'
-            },
+            padding: 5,
             boxWidth: 10,
             boxHeight: 10,
-            generateLabels: function(chart) {
-              const datasets = chart.data.datasets;
-              return datasets.map((dataset, i) => ({
-                text: dataset.label,
-                fillStyle: dataset.borderColor,
-                strokeStyle: dataset.borderColor,
-                lineWidth: 2,
-                hidden: !chart.isDatasetVisible(i),
-                index: i,
-                pointStyle: 'circle'
-              }));
+            font: {
+              size: 10,
+              family: 'Poppins',
+              weight: '600'
             }
           }
         },
@@ -610,9 +558,7 @@ if (ctx){
           callbacks: {
             label: function(context) {
               let label = context.dataset.label || '';
-              if (label) {
-                label += ': ';
-              }
+              if (label) label += ': ';
               if (context.parsed.y !== null) {
                 if (context.datasetIndex === 1) {
                   if (context.parsed.y >= 1000000) {
@@ -633,37 +579,43 @@ if (ctx){
       },
       scales:{
         x: {
+          offset: false,
           grid: {
             display: true,
-            color: 'rgba(255, 255, 255, 0.1)',
             drawBorder: false,
+            drawTicks: false,
+            color: 'rgba(255, 255, 255, 0.12)',
             lineWidth: 1
           },
           ticks: {
             color: '#e9edf7',
+            padding: 4,
             font: {
               size: 10,
               family: 'Poppins',
               weight: '500'
-            },
-            padding: 8
+            }
           }
         },
         y: {
           beginAtZero: true,
+          offset: false,
+          grace: '0%',
           grid: {
-            color: 'rgba(255, 255, 255, 0.12)',
+            display: true,
             drawBorder: false,
+            drawTicks: false,
+            color: 'rgba(255, 255, 255, 0.12)',
             lineWidth: 1
           },
           ticks: {  
             color: '#e9edf7',
+            padding: 4,
             font: {
               size: 10,
               family: 'Poppins',
               weight: '500'
             },
-            padding: 10,
             callback: function(value) {
               if (value >= 1000000) return (value/1000000).toFixed(1) + 'M';
               if (value >= 1000) return (value/1000).toFixed(0) + 'K';

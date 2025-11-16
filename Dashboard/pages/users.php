@@ -2,6 +2,26 @@
 // users.php — Srent • User Management (DB-ready; UI/Design tetap)
 
 /* -------------------------------------------------------------
+ * Session + Guard: hanya OWNER boleh akses halaman ini
+ * ----------------------------------------------------------- */
+if (session_status() === PHP_SESSION_NONE) {
+  session_start();
+}
+
+// Jika belum login → lempar ke login
+if (!isset($_SESSION['uid'])) {
+  header('Location: ../auth/login.php');
+  exit;
+}
+
+// Hanya role OWNER yang boleh akses page users.php
+if (($_SESSION['role'] ?? '') !== 'OWNER') {
+  http_response_code(403);
+  echo "<h2>Akses ditolak</h2><p>Halaman ini hanya dapat diakses oleh OWNER.</p>";
+  exit;
+}
+
+/* -------------------------------------------------------------
  * Helper aman
  * ----------------------------------------------------------- */
 if (!function_exists('e')) {
@@ -9,10 +29,15 @@ if (!function_exists('e')) {
 }
 
 /* -------------------------------------------------------------
- * Bootstrap user (fallback demo)
+ * Bootstrap user dari session (fallback)
  * ----------------------------------------------------------- */
 if (!isset($user)) {
-  $user = ['id'=>1,'username'=>'owner1','role'=>'OWNER','email'=>'owner@srent.com'];
+  $user = [
+    'id'       => (int)($_SESSION['uid'] ?? 0),
+    'username' => $_SESSION['uname'] ?? '',
+    'role'     => $_SESSION['role'] ?? 'OWNER',
+    'email'    => $_SESSION['email'] ?? '',
+  ];
 }
 
 /* -------------------------------------------------------------
@@ -31,6 +56,11 @@ if (isset($pdo) && $pdo instanceof PDO) {
 
       $currentRole   = strtoupper($user['role'] ?? 'CUSTOMER');
       $currentUserId = (int)($user['id'] ?? 0);
+
+      // EXTRA GUARD: semua aksi POST hanya boleh dari OWNER
+      if ($currentRole !== 'OWNER') {
+        throw new RuntimeException('Forbidden: hanya OWNER yang dapat mengubah data user.');
+      }
 
       /* -------------------- CREATE -------------------- */
       if ($action === 'create_user' && $currentRole === 'OWNER') {
@@ -86,10 +116,7 @@ if (isset($pdo) && $pdo instanceof PDO) {
 
         $targetOldRole = strtoupper($acc['role']);
 
-        // STAFF boleh edit CUSTOMER saja, OWNER boleh edit semua
-        if ($currentRole === 'STAFF' && $targetOldRole !== 'CUSTOMER') {
-          throw new RuntimeException('Forbidden.');
-        }
+        // (STAFF logic dibiarkan, tapi tidak akan pernah jalan karena guard di atas)
 
         $pdo->beginTransaction();
 
@@ -157,9 +184,11 @@ if (isset($pdo) && $pdo instanceof PDO) {
         $roleTarget = strtoupper((string)$stmt->fetchColumn());
         if ($roleTarget === '') throw new RuntimeException('User not found.');
 
+        // Hanya OWNER yang boleh delete, dan hanya STAFF / CUSTOMER
         $allowed = false;
-        if ($currentRole === 'OWNER' && in_array($roleTarget,['STAFF','CUSTOMER'],true)) $allowed = true;
-        if ($currentRole === 'STAFF' && $roleTarget === 'CUSTOMER') $allowed = true;
+        if ($currentRole === 'OWNER' && in_array($roleTarget,['STAFF','CUSTOMER'],true)) {
+          $allowed = true;
+        }
         if (!$allowed) throw new RuntimeException('Forbidden.');
 
         $pdo->prepare("DELETE FROM accounts WHERE id=?")->execute([$id]); // role rows ikut terhapus via CASCADE
@@ -333,7 +362,7 @@ body{font-family:"Poppins",system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-se
           <th>No Handphone</th>
           <th style="width:160px;">Role</th>
           <th style="width:210px;">Created At</th>
-          <?php if (in_array(($user['role'] ?? ''), ['OWNER','STAFF'])): ?>
+          <?php if (($user['role'] ?? '') === 'OWNER'): ?>
             <th style="width:120px;text-align:right" class="text-end">Action</th>
           <?php endif; ?>
         </tr>
@@ -356,14 +385,13 @@ body{font-family:"Poppins",system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-se
             . (int)($u['id'] ?? 0)
           );
 
-          // Otorisasi hapus
+          // Otorisasi hapus (di level UI) — sekarang hanya OWNER
           $currentRole = $user['role'] ?? '';
           $notSelf = ($u['id'] ?? null) !== ($user['id'] ?? null);
           $targetRole = $roleUpper;
           $canDelete =
             $notSelf && (
-              ($currentRole === 'OWNER' && in_array($targetRole, ['STAFF','CUSTOMER'])) ||
-              ($currentRole === 'STAFF' && $targetRole === 'CUSTOMER')
+              ($currentRole === 'OWNER' && in_array($targetRole, ['STAFF','CUSTOMER']))
             );
         ?>
         <tr data-role="<?= e($roleUpper) ?>">
@@ -382,7 +410,7 @@ body{font-family:"Poppins",system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-se
             <?= e($dtDate) ?> <?php if($dtTime): ?><span class="time"><?= e($dtTime) ?></span><?php endif; ?>
           </td>
 
-          <?php if (in_array(($user['role'] ?? ''), ['OWNER','STAFF'])): ?>
+          <?php if (($user['role'] ?? '') === 'OWNER'): ?>
           <td class="srui-actions-cell">
             <!-- Edit -->
             <button type="button" class="srui-iconbtn btn-edit"

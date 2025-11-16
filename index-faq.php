@@ -52,17 +52,7 @@ if ($isLoggedIn) {
 </section>
 
     <!-- Camera Categories -->
-    <section class="categories">
-        <div class="container">
-            <div class="categories-container">
-                <button class="category-btn active">DSLR</button>
-                <button class="category-btn">Mirrorless</button>
-                <button class="category-btn">Digicam</button>
-                <button class="category-btn">Analog</button>
-                <button class="category-btn">Lenses</button>
-            </div>
-        </div>
-    </section>
+
 
     <!-- FAQ Section -->
     <section class="faq">

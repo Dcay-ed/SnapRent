@@ -1,3 +1,53 @@
+<?php
+// Pastikan session jalan (biasanya sudah dari index.php, tapi aman kita cek)
+if (session_status() === PHP_SESSION_NONE) {
+  session_start();
+}
+
+/**
+ * Ambil 5 order rental terbaru untuk notifikasi.
+ * Asumsi:
+ *  - $pdo sudah dibuat di index.php (PDO)
+ *  - Tabel: rentals, customers, accounts, cameras
+ */
+$notifications = [];
+
+if (isset($pdo) && $pdo instanceof PDO) {
+  try {
+    $stmt = $pdo->prepare("
+      SELECT
+        rn.id,
+        rn.created_at,
+        rn.status,
+        rn.start_date,
+        rn.end_date,
+        rn.total_price,
+        cam.name      AS camera_name,
+        acc.username  AS customer_name
+      FROM rentals rn
+      JOIN customers c
+        ON c.customer_id = rn.customer_id
+      JOIN accounts acc
+        ON acc.id = c.customer_id
+      JOIN cameras cam
+        ON cam.id = rn.camera_id
+      ORDER BY rn.created_at DESC
+      LIMIT 5
+    ");
+    $stmt->execute();
+    $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
+  } catch (Exception $e) {
+    $notifications = [];
+  }
+}
+
+// Helper rupiah kalau belum ada
+if (!function_exists('rupiah')) {
+  function rupiah($number){
+    return 'Rp ' . number_format((float)$number, 0, ',', '.');
+  }
+}
+?>
 <!doctype html>
 <html lang="id">
 <head>
@@ -122,6 +172,8 @@
     align-items: center;
     flex-shrink: 0;
     border-bottom: 1px solid #e2e8f0;
+    position: relative;
+    z-index: 1100;
   }
 
   header h1 { 
@@ -141,12 +193,26 @@
     font-size: 22px; 
     color: #6b8cbb; 
     cursor: pointer; 
-    transition: color 0.3s;
+    transition: color 0.3s, transform 0.15s;
     position: relative;
   }
 
   .header-actions .bell-icon:hover { 
     color: #3d5a80; 
+    transform: translateY(-1px);
+  }
+
+  /* Dot kecil di icon bell (indikasi ada notif) */
+  .bell-icon::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 9px;
+    height: 9px;
+    border-radius: 999px;
+    background-color: #22c55e;
+    box-shadow: 0 0 0 4px rgba(34,197,94,0.25);
   }
 
   .user-profile { 
@@ -368,10 +434,6 @@
     font-weight: 600;
   }
 
-  #performanceChart {
-    max-height: 180px !important;
-  }
-
   /* Recent Rental Table - Compact */
   .recent-rental { 
     background-color: white; 
@@ -424,19 +486,11 @@
     display: inline-block; 
   }
 
-  .status-booked { 
-    background-color: #7593b8; 
-    color: white; 
-  }
-
-  .status-done { 
-    background-color: #a8bdd4; 
-    color: #2c3e50; 
-  }
-
-  .status-verified { background-color: #16a34a; color: white; }
+  .status-booked  { background-color: #7593b8; color: white; }
+  .status-done    { background-color: #a8bdd4; color: #2c3e50; }
+  .status-verified{ background-color: #16a34a; color: white; }
   .status-pending { background-color: #f59e0b; color: white; }
-  .status-failed { background-color: #ef4444; color: white; }
+  .status-failed  { background-color: #ef4444; color: white; }
 
   /* Cards for other pages */
   .page-card { 
@@ -551,6 +605,250 @@
   .content-area::-webkit-scrollbar-thumb:hover {
     background: #7593b8;
   }
+
+  /* ================== NOTIFICATION PANEL ================== */
+
+  .notification-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15,23,42,0.35);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease-out;
+    z-index: 1150;
+  }
+  .notification-backdrop.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .notification-wrapper {
+    position: fixed;
+    top: 80px;
+    right: 40px;
+    width: 380px;
+    max-height: 560px;
+    background: #ffffff;
+    border-radius: 18px;
+    box-shadow: 0 24px 60px rgba(15,23,42,0.25);
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 1200;
+  }
+  .notification-wrapper.open {
+    display: flex;
+  }
+
+  .notification-header {
+    padding: 16px 18px 10px;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .notification-header-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #111827;
+  }
+
+  .notification-header-subtitle {
+    font-size: 11px;
+    color: #6b7280;
+  }
+
+  .notification-list {
+    padding: 8px 0 8px;
+    overflow-y: auto;
+  }
+
+  .notification-item {
+    display: flex;
+    gap: 12px;
+    padding: 10px 16px;
+    align-items: flex-start;
+  }
+
+  .notification-item:hover {
+    background: #f9fafb;
+  }
+
+  .notif-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: #e0f2fe;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: #111827;
+    font-weight: 600;
+  }
+
+  .notification-body {
+    flex: 1;
+  }
+
+  .notification-title-line {
+    font-size: 13px;
+    color: #111827;
+    margin-bottom: 2px;
+  }
+  .notification-title-line strong {
+    font-weight: 600;
+  }
+
+  .notification-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: #9ca3af;
+    margin-bottom: 4px;
+  }
+
+  .notif-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: #22c55e;
+  }
+
+  .notification-desc {
+    font-size: 12px;
+    color: #6b7280;
+    line-height: 1.4;
+  }
+
+  .notification-empty {
+    padding: 16px;
+    font-size: 12px;
+    color: #9ca3af;
+  }
+
+  .notification-list::-webkit-scrollbar {
+    width: 5px;
+  }
+  .notification-list::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 999px;
+  }
+  .notification-list::-webkit-scrollbar-track {
+    background: transparent;
+  }
   </style>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const bell = document.querySelector('.bell-icon');
+      const panel = document.querySelector('.notification-wrapper');
+      const backdrop = document.querySelector('.notification-backdrop');
+
+      if (!bell || !panel || !backdrop) return;
+
+      function openPanel() {
+        panel.classList.add('open');
+        backdrop.classList.add('active');
+      }
+
+      function closePanel() {
+        panel.classList.remove('open');
+        backdrop.classList.remove('active');
+      }
+
+      function togglePanel() {
+        if (panel.classList.contains('open')) {
+          closePanel();
+        } else {
+          openPanel();
+        }
+      }
+
+      bell.addEventListener('click', function (e) {
+        e.stopPropagation();
+        togglePanel();
+      });
+
+      backdrop.addEventListener('click', closePanel);
+
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+          closePanel();
+        }
+      });
+
+      panel.addEventListener('click', function (e) {
+        e.stopPropagation();
+      });
+
+      document.addEventListener('click', function (e) {
+        if (!panel.contains(e.target) && !bell.contains(e.target)) {
+          closePanel();
+        }
+      });
+    });
+  </script>
 </head>
 <body>
+
+<!-- backdrop gelap di belakang panel notif -->
+<div class="notification-backdrop"></div>
+
+<!-- Panel Notifikasi (order baru dari tabel rentals) -->
+<div class="notification-wrapper">
+  <div class="notification-header">
+    <div>
+      <div class="notification-header-title">Notifications</div>
+      <div class="notification-header-subtitle">Order rental terbaru</div>
+    </div>
+  </div>
+
+  <div class="notification-list">
+    <?php if (empty($notifications)): ?>
+      <div class="notification-empty">
+        Belum ada order baru.
+      </div>
+    <?php else: ?>
+      <?php foreach ($notifications as $row): 
+        $initial = strtoupper(substr($row['customer_name'], 0, 1));
+        $created = $row['created_at'] ? strtotime($row['created_at']) : null;
+        $createdLabel = $created ? date('d M Y H:i', $created) : '';
+        $status = ucfirst($row['status'] ?? '');
+      ?>
+        <div class="notification-item">
+          <div class="notif-avatar">
+            <?= htmlspecialchars($initial, ENT_QUOTES, 'UTF-8') ?>
+          </div>
+          <div class="notification-body">
+            <div class="notification-title-line">
+              <strong><?= htmlspecialchars($row['customer_name'], ENT_QUOTES, 'UTF-8') ?></strong>
+              membuat order baru
+            </div>
+            <div class="notification-meta">
+              <?php if ($createdLabel): ?>
+                <span><?= htmlspecialchars($createdLabel, ENT_QUOTES, 'UTF-8') ?></span>
+              <?php endif; ?>
+              <?php if ($status): ?>
+                <span>&bull; <?= htmlspecialchars($status, ENT_QUOTES, 'UTF-8') ?></span>
+              <?php endif; ?>
+              <span class="notif-dot"></span>
+            </div>
+            <div class="notification-desc">
+              Kamera <strong><?= htmlspecialchars($row['camera_name'], ENT_QUOTES, 'UTF-8') ?></strong><br>
+              Periode: 
+              <?= htmlspecialchars($row['start_date'], ENT_QUOTES, 'UTF-8') ?>
+              s/d
+              <?= htmlspecialchars($row['end_date'], ENT_QUOTES, 'UTF-8') ?><br>
+              Total: <?= rupiah($row['total_price']) ?>
+            </div>
+          </div>
+        </div>
+      <?php endforeach; ?>
+    <?php endif; ?>
+  </div>
+</div>

@@ -681,7 +681,7 @@ a{color:inherit;text-decoration:none}
     <div class="container">
       <!-- Breadcrumb -->
       <div class="breadcrumb">
-        <a href="products.php">Cameras</a><span>›</span><b><?= e($breadcrumb) ?></b>
+        <a href="index-cameras.php">Cameras</a><span>›</span><b><?= e($breadcrumb) ?></b>
       </div>
 
       <!-- Main grid -->
@@ -745,14 +745,14 @@ a{color:inherit;text-decoration:none}
                 <label>Start Date</label>
                 <div class="datebox">
                   <input type="date" id="startDate" min="<?= e($today) ?>"/>
-                  <span>📅</span>
+                  
                 </div>
               </div>
               <div class="field">
                 <label>End Date</label>
                 <div class="datebox">
                   <input type="date" id="endDate" min="<?= e($today) ?>"/>
-                  <span>📅</span>
+                
                 </div>
               </div>
             </div>
@@ -851,18 +851,42 @@ a{color:inherit;text-decoration:none}
 
 <script>
 // Validasi tanggal + info kamera
-document.getElementById('rentNow')?.addEventListener('click', () => {
-  const start = document.getElementById('startDate')?.value;
-  const end   = document.getElementById('endDate')?.value;
+const startDate = document.getElementById('startDate');
+const endDate   = document.getElementById('endDate');
+const rentNow   = document.getElementById('rentNow');
 
+// 🔹 1. Realtime: ubah min di End Date ketika Start Date dipilih
+startDate?.addEventListener('change', () => {
+  endDate.min = startDate.value;
+
+  if (endDate.value < startDate.value) {
+    endDate.value = startDate.value;
+  }
+});
+
+// 🔹 2. Validasi saat menekan tombol Rent Now
+rentNow?.addEventListener('click', (e) => {
+
+  const start = startDate.value;
+  const end   = endDate.value;
+
+  const sDate = new Date(start);
+  const eDate = new Date(end);
+
+  // Cek input kosong
   if (!start || !end) {
     alert('Silakan pilih tanggal mulai dan tanggal selesai.');
+    e.preventDefault();
     return;
   }
-  if (start > end) {
+
+  // Cek end date < start date
+  if (eDate < sDate) {
     alert('Tanggal selesai tidak boleh sebelum tanggal mulai.');
+    e.preventDefault();
     return;
   }
+
 
   // === alur baru: langsung ke payment.php ===
   const cameraId = <?= (int)$cameraId ?>;

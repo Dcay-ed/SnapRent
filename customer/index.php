@@ -42,8 +42,11 @@ $user = $_SESSION['user'];
                 <a href="booking.php"><i class="far fa-folder-open"></i> Booking</a>
                 <a href="notification.php"><i class="far fa-bell"></i> Notification</a>
                 <div class="sidebar-footer">
-                    <a href="logout.php" class="logout"><i class="fas fa-sign-out-alt"></i> Log Out</a>
-                </div>
+                <div class="logout-section">
+                    <a href="../auth/logout.php" class="menu-item">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Log Out</span>
+                    </a>
             </nav>
         </aside>
 
