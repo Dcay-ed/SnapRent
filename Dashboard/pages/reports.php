@@ -89,16 +89,29 @@ foreach ($pdo->query($sqlStock) as $row) {
 
 
 // ===================== 4. LATE RETURNS SUMMARY (rentals) =====================
+// Logika:
+// - On time: semua rentals dengan status = 'returned'
+// - Late   : rentals yang status BUKAN 'returned' DAN end_date < hari ini (sudah lewat tanggal pengembalian)
 $rowLate = $pdo->query("
   SELECT
-    SUM(CASE WHEN returned_at IS NOT NULL AND returned_at > end_date THEN 1 ELSE 0 END) AS late_cnt,
-    SUM(CASE WHEN returned_at IS NOT NULL AND returned_at <= end_date THEN 1 ELSE 0 END) AS ontime_cnt
+    SUM(
+      CASE
+        WHEN status = 'returned' THEN 1
+        ELSE 0
+      END
+    ) AS ontime_cnt,
+    SUM(
+      CASE
+        WHEN status <> 'returned' AND end_date < CURDATE() THEN 1
+        ELSE 0
+      END
+    ) AS late_cnt
   FROM rentals
 ")->fetch(PDO::FETCH_ASSOC);
 
 $lateReturn = [
-  "Late"    => (int)$rowLate['late_cnt'],
-  "On time" => (int)$rowLate['ontime_cnt']
+  "Late"    => (int)($rowLate['late_cnt'] ?? 0),
+  "On time" => (int)($rowLate['ontime_cnt'] ?? 0)
 ];
 
 
@@ -167,6 +180,7 @@ $top_products = $pdo->query($sqlTop)->fetchAll(PDO::FETCH_ASSOC);
     align-items:center;
     gap:6px;
     box-shadow:0 4px 10px rgba(15,23,42,.12);
+    text-decoration:none;
   }
   .sr-btn.secondary{
     background:#f3f4f6;
@@ -219,7 +233,7 @@ $top_products = $pdo->query($sqlTop)->fetchAll(PDO::FETCH_ASSOC);
     flex-direction:column;
   }
   .sr-card h3{
-    margin:0 0 4px;
+    margin:0;
     font-size:15px;
     font-weight:700;
     color:#111827;
@@ -234,6 +248,20 @@ $top_products = $pdo->query($sqlTop)->fetchAll(PDO::FETCH_ASSOC);
     padding:3px 8px;
     border-radius:999px;
     font-weight:600;
+  }
+
+  /* HEADER DI DALAM CARD (UNTUK SEE DETAILS DI KANAN) */
+  .sr-card-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:4px;
+    gap:8px;
+  }
+  .sr-card-header .sr-btn{
+    padding:5px 10px;
+    font-size:11px;
+    box-shadow:none;
   }
 
   /* INI BAGIAN PENTING: kita pastikan canvas mengisi tinggi card */
@@ -360,7 +388,9 @@ $top_products = $pdo->query($sqlTop)->fetchAll(PDO::FETCH_ASSOC);
   <!-- Top row: Performance + CSAT -->
   <div class="sr-grid-top">
     <section class="sr-card">
-      <h3>Performance Overview <span class="sr-chip">Last 7 Days</span></h3>
+      <div class="sr-card-header">
+        <h3>Performance Overview <span class="sr-chip">Last 7 Days</span></h3>
+      </div>
       <div class="sr-chart">
         <canvas id="srPerf"></canvas>
       </div>
@@ -371,10 +401,17 @@ $top_products = $pdo->query($sqlTop)->fetchAll(PDO::FETCH_ASSOC);
     </section>
 
     <section class="sr-card">
-      <h3>Customer Satisfaction Overview</h3>
+      <div class="sr-card-header">
+        <h3>Customer Satisfaction Overview</h3>
+        <a href="?page=reviews" class="sr-btn secondary">
+          See Details <span style="font-size:11px; margin-left:4px;">→</span>
+        </a>
+      </div>
+
       <div class="sr-csat-value">
         <?= number_format($csatAverage,1) ?><span>/5</span>
       </div>
+
       <div class="sr-chart">
         <canvas id="srCsat"></canvas>
       </div>

@@ -3,12 +3,93 @@ require __DIR__ . '/database/db.php';
 $title = 'SnapRent';
 
 session_start();
-$isLoggedIn = isset($_SESSION['uid']); 
+$isLoggedIn = isset($_SESSION['uid']);
+
+/* ===================== TOP RENTED CAMERAS (FEATURED EQUIPMENT) ===================== */
+$topCameras = [];
+
+if (isset($pdo) && $pdo instanceof PDO) {
+    try {
+        // Ambil 3 kamera dengan jumlah rentals terbanyak
+        $sql = "
+            SELECT 
+                c.*,
+                COUNT(r.id) AS total_rentals
+            FROM cameras c
+            LEFT JOIN rentals r ON r.camera_id = c.id
+            GROUP BY c.id
+            ORDER BY total_rentals DESC
+            LIMIT 3
+        ";
+        $stmt = $pdo->query($sql);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($rows as $row) {
+            $cameraId = (int)$row['id'];
+
+            // ===== Ambil 1 gambar utama dari camera_images =====
+            $imageUrl = null;
+            $stmtImg = $pdo->prepare("
+                SELECT * 
+                FROM camera_images 
+                WHERE camera_id = :cid 
+                ORDER BY id ASC 
+                LIMIT 1
+            ");
+            if ($stmtImg->execute([':cid' => $cameraId])) {
+                $imgRow = $stmtImg->fetch(PDO::FETCH_ASSOC);
+                if ($imgRow) {
+                    // Sesuaikan nama kolom file gambar di sini
+                    $fileName = $imgRow['file_name']
+                        ?? ($imgRow['filename']
+                        ?? ($imgRow['image_path'] ?? null));
+
+                    if ($fileName) {
+                        // Sesuaikan base path uploads jika perlu
+                        $baseUpload = 'Dashboard/uploads/cameras';
+                        $imageUrl = $baseUpload . '/' . $cameraId . '/' . rawurlencode($fileName);
+                    }
+                }
+            }
+
+            // Fallback jika camera_images belum ada untuk kamera ini
+            if (!$imageUrl) {
+                // Pakai placeholder default
+                $imageUrl = 'auth/images/Camera.jpg';
+            }
+
+            // ===== Mapping nama kamera (sesuaikan dengan struktur tabel cameras) =====
+            $name = $row['camera_name']
+                ?? ($row['name']
+                ?? ($row['title'] ?? ('Camera #' . $cameraId)));
+
+            // ===== Mapping harga sewa per hari =====
+            $price = $row['daily_price']
+                ?? ($row['price_per_day']
+                ?? ($row['price'] ?? null));
+
+            $priceLabel = $price !== null
+                ? 'Rp ' . number_format((float)$price, 0, ',', '.') . ' /hari'
+                : 'Rp ——— /hari';
+
+            $topCameras[] = [
+                'id'            => $cameraId,
+                'name'          => $name,
+                'price_label'   => $priceLabel,
+                'image_url'     => $imageUrl,
+                'total_rentals' => (int)($row['total_rentals'] ?? 0),
+            ];
+        }
+    } catch (Throwable $e) {
+        $topCameras = [];
+        // debug optional: error_log('Top cameras error: '.$e->getMessage());
+    }
+}
 
 if ($isLoggedIn) {
-    require __DIR__ . '/partials/header.php'; 
+    require __DIR__ . '/partials/header.php';
 } else {
-    require __DIR__ . '/partials/home-header.php'; 
+    require __DIR__ . '/partials/home-header.php';
 }
 ?>
 
@@ -34,16 +115,16 @@ if ($isLoggedIn) {
 
       <div class="thumb-strip">
         <div class="thumb-item">
-          <img src="auth/images/BGCamera.jpg" alt="Camera 1">
+          <img src="auth/images/Camera.jpg" alt="Camera 1">
         </div>
         <div class="thumb-item">
-          <img src="auth/images/BGCamera.jpg" alt="Camera 2">
+          <img src="auth/images/dark-photography.jpg" alt="Camera 2">
         </div>
         <div class="thumb-item">
-          <img src="auth/images/BGCamera.jpg" alt="Camera 3">
+          <img src="auth/images/stefzn-wS3lR30P8qA-unsplash.jpg" alt="Camera 3">
         </div>
         <div class="thumb-item">
-          <img src="auth/images/BGCamera.jpg" alt="Camera 4">
+          <img src="auth/images/thumb-1920-478024.jpg" alt="Camera 4">
         </div>
       </div>
     </div>
@@ -121,12 +202,7 @@ if ($isLoggedIn) {
     <h3 class="section-title">FEATURED EQUIPMENT</h3>
     <p class="section-sub">Discover our most rented cameras, perfect for any creative project</p>
 
-    <div class="pills">
-      <button class="pill active" type="button">Mirrorless</button>
-      <button class="pill" type="button">DSLR</button>
-      <button class="pill" type="button">Digicam</button>
-      <button class="pill" type="button">Analog</button>
-    </div>
+    <!-- Pills Mirrorless / DSLR / Digicam / Analog dihapus sesuai permintaan -->
 
     <div class="carousel" id="carousel">
       <button class="chev" id="chevLeft" aria-label="Previous">
@@ -134,32 +210,30 @@ if ($isLoggedIn) {
       </button>
 
       <div class="stage" id="stage">
-        <!-- Kiri (kecil) -->
-        <div class="cam">
-          <div class="thumb" aria-hidden="true"></div>
-          <div class="meta">
-            <div class="title">Nama kamera</div>
-            <div class="price">Rp ——— /hari</div>
+        <?php
+          // Render 3 slot: kiri, tengah (big), kanan
+          $slots = 3;
+          for ($i = 0; $i < $slots; $i++):
+            $camData = $topCameras[$i] ?? null;
+            $isBig   = ($i === 1);
+            $title   = $camData['name'] ?? 'Nama kamera';
+            $price   = $camData['price_label'] ?? 'Rp ——— /hari';
+            $img     = $camData['image_url'] ?? null;
+        ?>
+          <div class="cam<?php echo $isBig ? ' big' : ''; ?>">
+            <div 
+              class="thumb" 
+              aria-hidden="true"
+              <?php if ($img): ?>
+                style="background-image: url('<?php echo htmlspecialchars($img, ENT_QUOTES, 'UTF-8'); ?>');"
+              <?php endif; ?>
+            ></div>
+            <div class="meta<?php echo $isBig ? ' center' : ''; ?>">
+              <div class="title"><?php echo htmlspecialchars($title, ENT_QUOTES, 'UTF-8'); ?></div>
+              <div class="price"><?php echo htmlspecialchars($price, ENT_QUOTES, 'UTF-8'); ?></div>
+            </div>
           </div>
-        </div>
-
-        <!-- Tengah (besar) -->
-        <div class="cam big">
-          <div class="thumb" aria-hidden="true"></div>
-          <div class="meta center">
-            <div class="title">Nama kamera</div>
-            <div class="price">Rp ——— /hari</div>
-          </div>
-        </div>
-
-        <!-- Kanan (kecil) -->
-        <div class="cam">
-          <div class="thumb" aria-hidden="true"></div>
-          <div class="meta">
-            <div class="title">Nama kamera</div>
-            <div class="price">Rp ——— /hari</div>
-          </div>
-        </div>
+        <?php endfor; ?>
       </div>
 
       <button class="chev" id="chevRight" aria-label="Next">
@@ -174,21 +248,27 @@ if ($isLoggedIn) {
   <div class="container">
     <h3>OUR BRAND</h3>
     <div class="brand-row">
+
       <div class="brand-pill" data-brand="canon">
-        <img src="images/brands/canon.png" alt="Canon">
+        <span>Canon</span>
       </div>
+
       <div class="brand-pill" data-brand="sony">
-        <img src="images/brands/sony.png" alt="Sony">
+        <span>Sony</span>
       </div>
+
       <div class="brand-pill" data-brand="nikon">
-        <img src="images/brands/nikon.png" alt="Nikon">
+        <span>Nikon</span>
       </div>
+
       <div class="brand-pill" data-brand="fujifilm">
-        <img src="images/brands/fujifilm.png" alt="Fujifilm">
+        <span>Fujifilm</span>
       </div>
+
       <div class="brand-pill" data-brand="panasonic">
-        <img src="images/brands/panasonic.png" alt="Panasonic">
+        <span>Panasonic</span>
       </div>
+
     </div>
   </div>
 </section>
@@ -407,6 +487,18 @@ if ($isLoggedIn) {
       transform: scale(4);
       opacity: 0;
     }
+  }
+
+  /* Override thumbnail agar gambar rapi dan muncul di semua kartu */
+  .featured .cam .thumb {
+    width: 100%;
+    height: 260px;              /* sesuaikan kalau perlu */
+    border-radius: 24px;
+    background-color: #f4f6f9;
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-size: contain;   /* pakai contain supaya kamera tidak kepotong aneh */
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.22);
   }
 </style>
 </body>

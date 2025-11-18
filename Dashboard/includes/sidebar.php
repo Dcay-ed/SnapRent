@@ -10,7 +10,7 @@ $userRole = $_SESSION['role'] ?? '';
 <aside class="sidebar">
   <div class="logo" 
        style="display:flex; align-items:center; justify-content:left; gap:6px; margin-top:-40px; margin-bottom:30px;">
-    <img src="includes/logo/logo snaprent.png" 
+    <img src="../auth/images/logo.png"
          alt="SnapRent Logo"
          style="width:150px; height:150px; object-fit:contain; border-radius:6px;">
   </div>

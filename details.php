@@ -96,9 +96,21 @@ if (!$cameraId) {
 
 /* ===================== QUERY KAMERA ===================== */
 $camera = db_row(
-  "SELECT id, name, brand, type, problem, daily_price, status,
-          condition_note, owner_id, created_at, updated_at
-   FROM cameras WHERE id = ? LIMIT 1",
+  "SELECT id,
+          name,
+          brand,
+          type,
+          description,
+          problem,
+          daily_price,
+          status,
+          condition_note,
+          owner_id,
+          created_at,
+          updated_at
+   FROM cameras
+   WHERE id = ?
+   LIMIT 1",
   [$cameraId]
 );
 if (!$camera) {
@@ -130,40 +142,24 @@ $totalReviews = (int)($agg['total_reviews'] ?? 0);
 $avgRating    = $agg['avg_rating'] !== null ? round((float)$agg['avg_rating'], 1) : null;
 
 /* ===================== UTIL TAMPILAN ===================== */
-/*
- * Helper path gambar:
- * - File fisik: Dashboard/uploads/cameras/{camera_id}/{filename}
- * - Kolom filename bisa berisi:
- *   - 'cameras/7/a7.jpg'
- *   - '7/a7.jpg'
- *   - 'a7.jpg'
- *   semuanya akan dikonversi ke URL yang benar.
- */
 function build_img_url(array $img, int $cameraId): string {
   $f = ltrim((string)($img['filename'] ?? ''), '/');
-
-  // jika sudah 'cameras/...'
   if (preg_match('~^cameras/~', $f)) {
     return 'Dashboard/uploads/' . $f;
   }
-
-  // jika '7/a7.jpg' (diawali angka + slash)
   if (preg_match('~^\d+\/~', $f)) {
     return 'Dashboard/uploads/cameras/' . $f;
   }
-
-  // default: hanya 'a7.jpg'
   return 'Dashboard/uploads/cameras/' . $cameraId . '/' . $f;
 }
 
 function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 function rp($n){ return 'Rp '.number_format((float)$n,0,',','.'); }
 
-/* bintang: kembalikan 5 span .star; yang kosong diberi style opacity:.4 */
 function render_stars($score): string {
   $score = max(0, min(5, (float)$score));
   $full  = (int)floor($score);
-  $half  = ($score - $full) >= 0.5 ? 1 : 0; // tidak dipakai visual half
+  $half  = ($score - $full) >= 0.5 ? 1 : 0;
   $empty = 5 - $full - $half;
 
   $html = str_repeat('<span class="star">★</span>', $full);
@@ -180,12 +176,12 @@ foreach ($reviews as $r) {
   if ($rt > 5) $rt = 5;
   $dist[$rt] += 1;
 }
-$maxBucket = max(1, max($dist)); // hindari 0
+$maxBucket = max(1, max($dist));
 
 /* gambar utama */
 $mainImageUrl = !empty($images) ? build_img_url($images[0], $cameraId) : null;
 
-/* thumb selalu 5 slot (duplicate kalau kurang) */
+/* thumb selalu 5 slot */
 $thumbImages = [];
 if (!empty($images)) {
   $thumbImages = $images;
@@ -206,6 +202,27 @@ $cameraType  = $camera['type'] ?: '-';
 $priceDay    = (float)$camera['daily_price'];
 $weeklyPrice = $priceDay > 0 ? (int)round($priceDay*7*0.85) : 0; // diskon 15%
 $breadcrumb  = $cameraTitle !== '' ? $cameraTitle : 'Detail Kamera';
+
+/* description untuk area Specifications (pakai kolom description, fallback) */
+$descriptionText = trim((string)($camera['description'] ?? ''));
+if ($descriptionText === '') {
+  $descriptionText = trim((string)($camera['problem'] ?? ''));
+}
+if ($descriptionText === '') {
+  $descriptionText = trim((string)($camera['condition_note'] ?? ''));
+}
+if ($descriptionText === '') {
+  $descriptionText = '—';
+}
+
+/* pecah deskripsi jadi bullet "•" per baris */
+$descriptionLines = array_values(array_filter(
+  array_map('trim', preg_split("/\r\n|\n|\r/", (string)$descriptionText)),
+  fn($v) => $v !== ''
+));
+if (!$descriptionLines) {
+  $descriptionLines = [$descriptionText];
+}
 
 /* tanggal minimum = hari ini untuk input date */
 $today = date('Y-m-d');
@@ -309,7 +326,7 @@ a{color:inherit;text-decoration:none}
 
 /* ===================== Page Frame ===================== */
 .page{
-  padding-top:80px;  /* offset header */
+  padding-top:80px;
   padding-bottom:60px;
 }
 .container{
@@ -369,11 +386,76 @@ a{color:inherit;text-decoration:none}
   height:44px;
   border-radius:50%;
   background:#fff;
-  display:grid;
-  place-items:center;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:4px;
   box-shadow:var(--shadow);
   cursor:pointer;
+  border:none;
+  font-size:18px;
+  transition:
+    transform .18s ease,
+    box-shadow .18s ease,
+    background .18s ease,
+    color .18s ease;
 }
+
+/* state saat sudah di-wishlist */
+.fav-added{
+  background:#ffeff1;
+  color:#e11d48;
+}
+
+/* class animasi pop */
+.fav-anim{
+  animation:fav-pop .3s ease;
+}
+
+/* efek pop kecil */
+@keyframes fav-pop{
+  0%   { transform:scale(1);   box-shadow:var(--shadow); }
+  40%  { transform:scale(1.18); box-shadow:0 8px 18px rgba(0,0,0,.18); }
+  100% { transform:scale(1);   box-shadow:var(--shadow); }
+}
+.fav-added{
+  background:#ffeff1;
+  color:#e11d48;
+}
+.fav-badge{
+  display:none;
+  width:18px;
+  height:18px;
+  border-radius:50%;
+  background:#e11d48;
+  color:#fff;
+  font-size:11px;
+  align-items:center;
+  justify-content:center;
+}
+
+/* toast wishlist */
+.toast-wishlist{
+  position:fixed;
+  left:50%;
+  bottom:24px;
+  transform:translateX(-50%) translateY(40px);
+  background:#111827;
+  color:#f9fafb;
+  padding:10px 16px;
+  border-radius:999px;
+  font-size:14px;
+  box-shadow:0 10px 25px rgba(0,0,0,.25);
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .2s ease, transform .2s ease;
+  z-index:999;
+}
+.toast-wishlist.show{
+  opacity:1;
+  transform:translateX(-50%) translateY(0);
+}
+
 .thumbs{
   display:grid;
   grid-template-columns: repeat(5, 1fr);
@@ -508,8 +590,16 @@ a{color:inherit;text-decoration:none}
 }
 .specgrid{
   display:grid;
-  grid-template-columns:repeat(2, 1fr);
-  gap:10px 24px;
+  grid-template-columns: 1.1fr 1.5fr; /* kiri: sensor+brand, kanan: description lebar */
+  column-gap:40px;
+}
+.spec-left{
+  display:flex;
+  flex-direction:column;
+}
+.spec-right{
+  display:flex;
+  flex-direction:column;
 }
 .srow{
   display:flex;
@@ -525,6 +615,17 @@ a{color:inherit;text-decoration:none}
   font-size:14px;
   font-weight:600;
   color:var(--text-color);
+}
+.desc-body{
+  margin-top:6px;
+  padding-top:4px;
+  border-top:1px solid var(--border-color);
+  font-size:14px;
+  color:var(--text-color);
+  line-height:1.6;
+}
+.desc-line{
+  margin-bottom:4px;
 }
 
 /* ===================== Reviews ===================== */
@@ -601,6 +702,13 @@ a{color:inherit;text-decoration:none}
 }
 .chip:hover{background:#F4F6F8}
 
+/* chip active state */
+.chip.active{
+  background: var(--button-bg);
+  color: var(--button-text);
+  border-color: var(--button-bg);
+}
+
 .list{
   display:flex;
   flex-direction:column;
@@ -670,12 +778,16 @@ a{color:inherit;text-decoration:none}
         <span>🔍</span>
       </div>
     </div>
+    
     <div class="icons">
-      <div class="ico">👤</div>
-      <div class="ico">🔔</div>
-      <div class="ico">🛒</div>
+      <a class="ico" href="customer/index.php">👤</a>
+      <a class="ico" href="customer/notification.php">🔔</a>
+      <a class="ico" href="customer/booking.php">🛒</a>
     </div>
   </header>
+
+  <!-- Toast wishlist -->
+  <div class="toast-wishlist" id="wishlistToast">Added to wishlist</div>
 
   <main class="page">
     <div class="container">
@@ -697,7 +809,10 @@ a{color:inherit;text-decoration:none}
             <?php else: ?>
               Gambar Utama Kamera
             <?php endif; ?>
-            <button class="fav">❤</button>
+            <button class="fav" type="button" id="favBtn" data-camera-id="<?= (int)$cameraId ?>">
+              ❤
+              <span class="fav-badge" id="favBadge" style="display:none;">❤️</span>
+            </button>
           </div>
           <div class="thumbs" id="thumbs">
             <?php if (!empty($thumbImages)): ?>
@@ -745,14 +860,12 @@ a{color:inherit;text-decoration:none}
                 <label>Start Date</label>
                 <div class="datebox">
                   <input type="date" id="startDate" min="<?= e($today) ?>"/>
-                  
                 </div>
               </div>
               <div class="field">
                 <label>End Date</label>
                 <div class="datebox">
                   <input type="date" id="endDate" min="<?= e($today) ?>"/>
-                
                 </div>
               </div>
             </div>
@@ -765,19 +878,30 @@ a{color:inherit;text-decoration:none}
       <section class="spec">
         <div class="heading">Specifications</div>
         <div class="specgrid">
-          <div class="srow"><span class="k">Sensor Type</span><span class="v"><?= e($camera['type'] ?: '—') ?></span></div>
-          <div class="srow"><span class="k">Condition</span><span class="v"><?= e($camera['problem'] ?: '—') ?></span></div>
-          <div class="srow"><span class="k">Status</span><span class="v"><?= e($camera['status'] ?: '—') ?></span></div>
+          <!-- KIRI: Sensor & Brand -->
+          <div class="spec-left">
+            <div class="srow">
+              <span class="k">Sensor Type</span>
+              <span class="v"><?= e($camera['type'] ?: '—') ?></span>
+            </div>
+            <div class="srow">
+              <span class="k">Brand</span>
+              <span class="v"><?= e($camera['brand'] ?: '—') ?></span>
+            </div>
+          </div>
 
-          <div class="srow"><span class="k">Owner</span><span class="v">#<?= e($camera['owner_id']) ?></span></div>
-          <div class="srow"><span class="k">Daily Price</span><span class="v"><?= rp($priceDay) ?></span></div>
-          <div class="srow"><span class="k">Added</span><span class="v"><?= e($camera['created_at'] ?: '—') ?></span></div>
-
-          <div class="srow"><span class="k">Updated</span><span class="v"><?= e($camera['updated_at'] ?: '—') ?></span></div>
-          <div class="srow"><span class="k">Notes</span><span class="v"><?= e($camera['condition_note'] ?: '—') ?></span></div>
-          <div class="srow"><span class="k">ID</span><span class="v">#<?= e($camera['id']) ?></span></div>
-
-          <div class="srow"><span class="k">Brand</span><span class="v"><?= e($camera['brand'] ?: '—') ?></span></div>
+          <!-- KANAN: Description -->
+          <div class="spec-right">
+            <div class="srow" style="border-bottom:none;padding-bottom:4px;">
+              <span class="k">Description</span>
+              <span class="v"></span>
+            </div>
+            <div class="desc-body">
+              <?php foreach ($descriptionLines as $line): ?>
+                <div class="desc-line">• <?= e($line) ?></div>
+              <?php endforeach; ?>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -815,7 +939,9 @@ a{color:inherit;text-decoration:none}
         <div class="list">
           <?php if (!empty($reviews)): ?>
             <?php foreach ($reviews as $r): ?>
-              <div class="card">
+              <div class="card"
+                   data-rating="<?= e($r['rating']) ?>"
+                   data-created="<?= e($r['created_at']) ?>">
                 <div class="avatar"></div>
                 <div>
                   <div class="meta">
@@ -850,50 +976,39 @@ a{color:inherit;text-decoration:none}
   </main>
 
 <script>
-// Validasi tanggal + info kamera
+// Validasi tanggal + alur ke checkout
 const startDate = document.getElementById('startDate');
 const endDate   = document.getElementById('endDate');
 const rentNow   = document.getElementById('rentNow');
 
-// 🔹 1. Realtime: ubah min di End Date ketika Start Date dipilih
 startDate?.addEventListener('change', () => {
   endDate.min = startDate.value;
-
   if (endDate.value < startDate.value) {
     endDate.value = startDate.value;
   }
 });
 
-// 🔹 2. Validasi saat menekan tombol Rent Now
 rentNow?.addEventListener('click', (e) => {
-
   const start = startDate.value;
   const end   = endDate.value;
-
   const sDate = new Date(start);
   const eDate = new Date(end);
 
-  // Cek input kosong
   if (!start || !end) {
     alert('Silakan pilih tanggal mulai dan tanggal selesai.');
     e.preventDefault();
     return;
   }
-
-  // Cek end date < start date
   if (eDate < sDate) {
     alert('Tanggal selesai tidak boleh sebelum tanggal mulai.');
     e.preventDefault();
     return;
   }
 
-
-  // === alur baru: langsung ke payment.php ===
   const cameraId = <?= (int)$cameraId ?>;
   const url = `checkout.php?id=${cameraId}&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
   window.location.href = url;
 });
-
 
 // tombol "helpful"
 document.querySelectorAll('.help').forEach(el => {
@@ -905,12 +1020,62 @@ document.querySelectorAll('.help').forEach(el => {
   });
 });
 
-document.getElementById('btnRecent')?.addEventListener('click', () => {
-  alert('Menampilkan ulasan terbaru');
-});
-document.getElementById('btnAll')?.addEventListener('click', () => {
-  alert('Menampilkan semua rating');
-});
+// Filter & sort reviews: Most Recent / All Ratings
+(function(){
+  const btnRecent = document.getElementById('btnRecent');
+  const btnAll    = document.getElementById('btnAll');
+  const list      = document.querySelector('.list');
+  if (!list || !btnRecent || !btnAll) return;
+
+  // Ambil semua card review yang punya data-rating (skip placeholder)
+  const allCards = Array.from(list.querySelectorAll('.card[data-rating]'));
+
+  // helper: set chip active
+  function setActive(btn){
+    [btnRecent, btnAll].forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+
+  // helper: render ulang urutan card ke dalam .list
+  function renderSorted(cards){
+    cards.forEach(c => list.appendChild(c));
+  }
+
+  // Sort by tanggal terbaru
+  function sortByRecent(cards){
+    return [...cards].sort((a,b) => {
+      const da = new Date((a.dataset.created || '').replace(' ', 'T'));
+      const db = new Date((b.dataset.created || '').replace(' ', 'T'));
+      return db - da; // terbaru duluan
+    });
+  }
+
+  // Sort by rating tertinggi, kalau rating sama → terbaru duluan
+  function sortByRating(cards){
+    return [...cards].sort((a,b) => {
+      const ra = parseFloat(a.dataset.rating || '0');
+      const rb = parseFloat(b.dataset.rating || '0');
+      if (rb !== ra) return rb - ra; // rating tinggi dulu
+      const da = new Date((a.dataset.created || '').replace(' ', 'T'));
+      const db = new Date((b.dataset.created || '').replace(' ', 'T'));
+      return db - da; // terbaru duluan
+    });
+  }
+
+  // Default: Most Recent aktif
+  setActive(btnRecent);
+  renderSorted(sortByRecent(allCards));
+
+  btnRecent.addEventListener('click', () => {
+    setActive(btnRecent);
+    renderSorted(sortByRecent(allCards));
+  });
+
+  btnAll.addEventListener('click', () => {
+    setActive(btnAll);
+    renderSorted(sortByRating(allCards));
+  });
+})();
 
 // Gallery: klik thumb -> ganti gambar utama
 (function(){
@@ -921,6 +1086,77 @@ document.getElementById('btnAll')?.addEventListener('click', () => {
     const img = e.target.closest('img[data-src]');
     if (!img) return;
     mainImg.src = img.dataset.src;
+  });
+})();
+
+/* ====== FAV → TOGGLE WISHLIST (ADD / REMOVE via add_wishlist.php) ====== */
+(function(){
+  const btn   = document.getElementById('favBtn');
+  const badge = document.getElementById('favBadge');
+  const toast = document.getElementById('wishlistToast');
+
+  if (!btn) return;
+
+  let isWish = false; // state front-end
+
+  btn.addEventListener('click', async () => {
+    const cid = btn.dataset.cameraId;
+    if (!cid) return;
+
+    const fd = new FormData();
+    fd.append('camera_id', cid);
+
+    try{
+      const res = await fetch('customer/add_wishlist.php', {
+        method: 'POST',
+        body: fd,
+        credentials: 'same-origin'
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data || data.status !== 'ok') {
+        if (toast){
+          toast.textContent = (data && data.message) || 'Gagal update wishlist';
+          toast.classList.add('show');
+          setTimeout(() => toast.classList.remove('show'), 1500);
+        }
+        return;
+      }
+
+      // toggle state dari server
+      isWish = !!data.in_wishlist;
+
+      if (isWish){
+        btn.classList.add('fav-added');
+        if (badge) badge.style.display = 'flex';
+      } else {
+        btn.classList.remove('fav-added');
+        if (badge) badge.style.display = 'none';
+      }
+
+      // ---- TRIGGER ANIMASI POP SETIAP KALI KLIK BERHASIL ----
+      btn.classList.remove('fav-anim');     // reset kalau masih ada
+      void btn.offsetWidth;                 // force reflow biar animasi bisa diulang
+      btn.classList.add('fav-anim');        // jalankan animasi
+      setTimeout(() => {
+        btn.classList.remove('fav-anim');   // bersihkan class setelah animasi
+      }, 300);
+
+      // toast text
+      if (toast){
+        toast.textContent = data.message || (isWish ? 'Added to wishlist' : 'Removed from wishlist');
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 1500);
+      }
+
+    } catch(e){
+      if (toast){
+        toast.textContent = 'Gagal koneksi ke server';
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 1500);
+      }
+    }
   });
 })();
 </script>

@@ -7,6 +7,8 @@
 // - Edit Product: preview server + file baru, hapus gambar via AJAX (tanpa nested form)
 // - Modal Edit dibangun via output buffering (ob_start)
 // - PATCH: slot kosong pada upload diabaikan → tidak ada lagi "File #1 gagal diupload"
+// - PATCH: kolom baru cameras.description khusus Product Description
+//           sedangkan cameras.problem tetap untuk Problem / condition_note
 // ======================================================================
 
 // ---------- Konfigurasi ----------
@@ -188,31 +190,65 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
 
   // CREATE
   if ($action==='create_camera') {
-    $name=trim($_POST['name']??''); $brand=trim($_POST['brand']??''); $type=trim($_POST['type']??''); $problem=trim($_POST['problem']??'');
-    $daily=(float)($_POST['daily_price']??0); $status=trim($_POST['status']??'available');
+    $name        = trim($_POST['name'] ?? '');
+    $brand       = trim($_POST['brand'] ?? '');
+    $type        = trim($_POST['type'] ?? '');
+    $description = trim($_POST['description'] ?? '');
+    $problem     = trim($_POST['problem'] ?? '');
+    $daily       = (float)($_POST['daily_price'] ?? 0);
+    $status      = trim($_POST['status'] ?? 'available');
+
     if ($name && $brand && $daily>0) {
-      $pdo->prepare("INSERT INTO cameras(name,brand,type,problem,daily_price,status,created_at) VALUES(?,?,?,?,?,?,NOW())")
-          ->execute([$name,$brand,$type,$problem,$daily,$status]);
+      $pdo->prepare("
+        INSERT INTO cameras(name,brand,type,description,problem,daily_price,status,created_at)
+        VALUES(?,?,?,?,?,?,?,NOW())
+      ")->execute([$name,$brand,$type,$description,$problem,$daily,$status]);
+
       $newId=(int)$pdo->lastInsertId();
       $res = handleMultiUploadsForCamera($pdo,$newId,'images',MAX_IMAGES_PER_PRODUCT);
-      $qs='created=1&added='.count($res['saved']); if($res['skipped']>0) $qs.='&skipped='.$res['skipped']; if(!empty($res['errors'])) $qs.='&err='.urlencode(implode(' | ',$res['errors']));
+      $qs='created=1&added='.count($res['saved']);
+      if($res['skipped']>0) $qs.='&skipped='.$res['skipped'];
+      if(!empty($res['errors'])) $qs.='&err='.urlencode(implode(' | ',$res['errors']));
       header('Location: ?page=products&'.$qs); exit;
-    } else { $alerts[]=['type'=>'danger','msg'=>'Nama, brand, dan harga wajib diisi (harga > 0).']; }
+    } else {
+      $alerts[]=['type'=>'danger','msg'=>'Nama, brand, dan harga wajib diisi (harga > 0).'];
+    }
   }
 
   // UPDATE
   if ($action==='update_camera') {
-    $id=(int)($_POST['id']??0);
-    $name=trim($_POST['name']??''); $brand=trim($_POST['brand']??''); $type=trim($_POST['type']??''); $problem=trim($_POST['problem']??'');
-    $daily=(float)($_POST['daily_price']??0); $status=trim($_POST['status']??'available');
+    $id          = (int)($_POST['id'] ?? 0);
+    $name        = trim($_POST['name'] ?? '');
+    $brand       = trim($_POST['brand'] ?? '');
+    $type        = trim($_POST['type'] ?? '');
+    $description = trim($_POST['description'] ?? '');
+    $problem     = trim($_POST['problem'] ?? '');
+    $daily       = (float)($_POST['daily_price'] ?? 0);
+    $status      = trim($_POST['status'] ?? 'available');
+
     if ($id>0 && $name && $brand && $daily>0) {
-      $pdo->prepare("UPDATE cameras SET name=?, brand=?, type=?, problem=?, daily_price=?, status=? WHERE id=?")
-          ->execute([$name,$brand,$type,$problem,$daily,$status,$id]);
-      $current=countImages($pdo,$id); $remain=MAX_IMAGES_PER_PRODUCT-$current;
+      $pdo->prepare("
+        UPDATE cameras
+           SET name=?,
+               brand=?,
+               type=?,
+               description=?,
+               problem=?,
+               daily_price=?,
+               status=?
+         WHERE id=?
+      ")->execute([$name,$brand,$type,$description,$problem,$daily,$status,$id]);
+
+      $current = countImages($pdo,$id);
+      $remain  = MAX_IMAGES_PER_PRODUCT - $current;
       $res = handleMultiUploadsForCamera($pdo,$id,'images',max(0,$remain));
-      $qs='updated=1&added='.count($res['saved']); if($res['skipped']>0) $qs.='&skipped='.$res['skipped']; if(!empty($res['errors'])) $qs.='&err='.urlencode(implode(' | ',$res['errors']));
+      $qs='updated=1&added='.count($res['saved']);
+      if($res['skipped']>0) $qs.='&skipped='.$res['skipped'];
+      if(!empty($res['errors'])) $qs.='&err='.urlencode(implode(' | ',$res['errors']));
       header('Location: ?page=products&'.$qs); exit;
-    } else { $alerts[]=['type'=>'danger','msg'=>'Nama, brand, dan harga wajib diisi (harga > 0).']; }
+    } else {
+      $alerts[]=['type'=>'danger','msg'=>'Nama, brand, dan harga wajib diisi (harga > 0).'];
+    }
   }
 
   // DELETE product
@@ -261,7 +297,10 @@ $need   = isset($_GET['need']) ? (int)$_GET['need'] : 0;
 $q      = trim($_GET['q'] ?? ''); $brandF = trim($_GET['brand'] ?? ''); $statusF= trim($_GET['status'] ?? '');
 $minp   = trim($_GET['min_price'] ?? ''); $maxp = trim($_GET['max_price'] ?? '');
 $where=[]; $args=[];
-if ($q!==''){ $where[]='(cam.name LIKE ? OR cam.type LIKE ? OR cam.brand LIKE ? OR cam.problem LIKE ?)'; $args[]="%$q%"; $args[]="%$q%"; $args[]="%$q%"; $args[]="%$q%";}
+if ($q!==''){
+  $where[]='(cam.name LIKE ? OR cam.type LIKE ? OR cam.brand LIKE ? OR cam.problem LIKE ? OR cam.description LIKE ?)';
+  $args[]="%$q%"; $args[]="%$q%"; $args[]="%$q%"; $args[]="%$q%"; $args[]="%$q%";
+}
 if ($brandF!==''){ $where[]='cam.brand = ?'; $args[]=$brandF; }
 if ($statusF!==''){ $where[]='cam.status = ?'; $args[]=$statusF; }
 if ($need){ $where[]="cam.status IN ('unavailable','maintenance')"; }
@@ -269,7 +308,6 @@ if ($minp!==''){ $where[]='cam.daily_price >= ?'; $args[]=(float)$minp; }
 if ($maxp!==''){ $where[]='cam.daily_price <= ?'; $args[]=(float)$maxp; }
 $whereSql=$where?('WHERE '.implode(' AND ',$where)):'';
 
-// ---------- Pagination ----------
 // ---------- Pagination & Sorting ----------
 $per = min(50, max(1, (int)($_GET['per'] ?? 50)));      // default 50, batas maksimal 50
 $pageNo = max(1, (int)($_GET['p'] ?? 1));
@@ -304,7 +342,15 @@ function sort_link($key, $label) {
 $brand_list=$pdo->query("SELECT DISTINCT brand FROM cameras ORDER BY brand ASC")->fetchAll(PDO::FETCH_COLUMN);
 $stmt=$pdo->prepare("SELECT COUNT(*) FROM cameras cam $whereSql"); $stmt->execute($args); $total=(int)$stmt->fetchColumn();
 $stmt=$pdo->prepare("
-  SELECT cam.id, cam.name, cam.brand, cam.type, cam.problem, cam.daily_price, cam.status, cam.created_at,
+  SELECT cam.id,
+         cam.name,
+         cam.brand,
+         cam.type,
+         cam.description,
+         cam.problem,
+         cam.daily_price,
+         cam.status,
+         cam.created_at,
          (SELECT ci.filename FROM camera_images ci WHERE ci.camera_id = cam.id ORDER BY ci.id DESC LIMIT 1) AS image
   FROM cameras cam
   $whereSql
@@ -417,7 +463,7 @@ foreach(array_merge($getAlerts,$alerts) as $al): ?>
 <form class="page-card mb-3 filter-grid" method="get">
   <input type="hidden" name="page" value="products"><?php if($need): ?><input type="hidden" name="need" value="1"><?php endif; ?>
   <div class="row g-3 align-items-end">
-    <div class="col-12 col-lg-3"><label class="form-label">Search</label><input type="text" class="form-control" name="q" value="<?= e($q ?? '') ?>" placeholder="Name / Type"></div>
+    <div class="col-12 col-lg-3"><label class="form-label">Search</label><input type="text" class="form-control" name="q" value="<?= e($q ?? '') ?>" placeholder="Name / Type / Description"></div>
     <div class="col-6 col-lg-2"><label class="form-label">Brand</label><select class="form-select" name="brand"><option value="">All</option><?php foreach($brand_list as $b): ?><option value="<?= e($b) ?>" <?= ($brandF ?? '')===$b?'selected':'' ?>><?= e($b) ?></option><?php endforeach; ?></select></div>
     <div class="col-6 col-lg-2"><label class="form-label">Status</label><select class="form-select" name="status"><option value="">All</option><option value="available"   <?= ($statusF ?? '')==='available'   ? 'selected':'' ?>>Available</option><option value="unavailable" <?= ($statusF ?? '')==='unavailable' ? 'selected':'' ?>>Unavailable</option><option value="maintenance" <?= ($statusF ?? '')==='maintenance' ? 'selected':'' ?>>Maintenance</option></select></div>
     <div class="col-6 col-lg-2"><label class="form-label">Min Price</label><input type="number" step="0.01" class="form-control" name="min_price" value="<?= e($minp ?? '') ?>"></div>
@@ -562,14 +608,13 @@ foreach($cameras as $cam):
                   <label class="form-label">Product Category</label>
                     <select class="form-select" name="type" id="ep_category_<?= (int)$cid ?>">
                       <?php
-                        // Hanya 4 kategori baru
+                        // 4 kategori utama
                         $opts = ['Analog','Digicam','DSLR','Mirrorless'];
                         $sel  = (string)($cam['type'] ?? '');
 
                         echo '<option value="">Category</option>';
 
-                        // Jika data lama (mis. "Action Cam", "Lens", dll) masih ada di DB,
-                        // tampilkan sebagai fallback agar data tidak hilang saat edit.
+                        // Fallback untuk data lama
                         if ($sel !== '' && !in_array($sel, $opts, true)) {
                           echo '<option selected>'.e($sel).'</option>';
                         }
@@ -600,9 +645,22 @@ foreach($cameras as $cam):
                 </div>
               </div>
 
+              <?php
+                $descText = $cam['description'] ?? '';
+                if ($descText === '' || $descText === null) {
+                  // fallback: pakai problem lama sebagai description
+                  $descText = $cam['problem'] ?? '';
+                }
+              ?>
+
               <div class="mt-3">
                 <label class="form-label">Product Description</label>
-                <textarea class="form-control" rows="5" name="problem" id="ep_desc_<?= (int)$cid ?>" placeholder="Add product description"><?= e($cam['problem']) ?></textarea>
+                <textarea class="form-control" rows="5" name="description" id="ep_desc_<?= (int)$cid ?>" placeholder="Add product description"><?= e($descText) ?></textarea>
+              </div>
+
+              <div class="mt-3">
+                <label class="form-label">Problem / Condition Note</label>
+                <textarea class="form-control" rows="3" name="problem" id="ep_problem_<?= (int)$cid ?>" placeholder="Add condition note"><?= e($cam['problem']) ?></textarea>
               </div>
 
               <div class="np-actions-bar" style="background:#284466;padding:16px;border-radius:0 0 14px 14px;display:flex;justify-content:flex-end;gap:10px;">
@@ -612,11 +670,23 @@ foreach($cameras as $cam):
             </div>
 
             <?php
+              // Untuk preview, ambil description dulu. Jika kosong, fallback ke problem
+              $previewSource = $cam['description'] ?? '';
+              if ($previewSource === '' || $previewSource === null) {
+                $previewSource = $cam['problem'] ?? '';
+              }
+              $descLines = array_slice(
+                array_filter(array_map('trim', preg_split("/\r\n|\n|\r/", (string)$previewSource))),
+                0,
+                4
+              );
+              if(!$descLines){
+                $descLines=['dummy text of the printing and typesetting','it over 2000 years old','variations of passages','popularised in the 1960s'];
+              }
+
               $serverUrls = array_map(fn($g)=>cameraDirUrl($cid).$g['filename'],$gallery);
               $serverUrlsJson = htmlspecialchars(json_encode($serverUrls, JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8');
               $typeTxt = e($cam['type'] ?: 'Category');
-              $descLines = array_slice(array_filter(array_map('trim', preg_split("/\r\n|\n|\r/", (string)($cam['problem'] ?? '')))),0,4);
-              if(!$descLines){ $descLines=['dummy text of the printing and typesetting','it over 2000 years old','variations of passages','popularised in the 1960s']; }
             ?>
             <aside class="np-preview pv-card" id="ep_preview_<?= (int)$cid ?>" data-images="<?= $serverUrlsJson ?>">
               <div class="pv-title">Preview</div>
@@ -656,12 +726,16 @@ foreach($cameras as $cam):
             name?.addEventListener("input", ()=>{ pvName.textContent = name.value || "—"; });
             cat?.addEventListener("change", ()=>{ pvSub.textContent = cat.value || "Category"; });
 
-            // Desc → UL
+            // Desc → UL (pakai kolom description)
             const desc=$("#ep_desc_<?= (int)$cid ?>"); const pvList=document.getElementById("ep_pv_list<?= (int)$cid ?>");
-            function renderDesc(text){ const lines=(text||"").split(/\r?\n/).map(s=>s.trim()).filter(Boolean).slice(0,4);
+            function renderDesc(text){
+              const lines=(text||"").split(/\r?\n/).map(s=>s.trim()).filter(Boolean).slice(0,4);
               const fallback=["dummy text of the printing and typesetting","it over 2000 years old","variations of passages","popularised in the 1960s"];
-              const items=lines.length?lines:fallback; if(pvList) pvList.innerHTML=items.map(t=>`<li>${t.replace(/</g,"&lt;").replace(/>/g,"&gt;")}</li>`).join(""); }
-            renderDesc(desc?desc.value:""); desc&&desc.addEventListener("input",()=>renderDesc(desc.value));
+              const items=lines.length?lines:fallback;
+              if(pvList) pvList.innerHTML=items.map(t=>`<li>${t.replace(/</g,"&lt;").replace(/>/g,"&gt;")}</li>`).join("");
+            }
+            renderDesc(desc?desc.value:"");
+            desc&&desc.addEventListener("input",()=>renderDesc(desc.value));
 
             // Preview hero & thumbs
             const pvRoot=document.getElementById("ep_preview_<?= (int)$cid ?>");
@@ -695,7 +769,9 @@ foreach($cameras as $cam):
             input?.addEventListener("change", ()=>{
               const files = Array.from(input.files||[]).slice(0, <?= MAX_IMAGES_PER_PRODUCT ?>);
               if(countEl) countEl.textContent = String(files.length);
-              if(!files.length){ const cur=getServerUrlsFromDom(); setHero(cur[0]||null); buildPvThumbs(cur); return; }
+              if(!files.length){
+                const cur=getServerUrlsFromDom(); setHero(cur[0]||null); buildPvThumbs(cur); return;
+              }
               const urls=[]; let done=0;
               files.forEach((f,idx)=>{ const r=new FileReader(); r.onload=e=>{ urls[idx]=e.target.result; done++; if(done===1) setHero(urls[0]); if(done===files.length) buildPvThumbs(urls); }; r.readAsDataURL(f); });
             });
@@ -821,7 +897,15 @@ if ($totalPages > 1):
               <div class="col-md-6"><label class="form-label">Status</label><select class="form-select" name="status" id="np_status"><option value="available">Available</option><option value="unavailable">Unavailable</option><option value="maintenance">Maintenance</option></select></div>
             </div>
 
-            <div class="mt-3"><label class="form-label">Product Description</label><textarea class="form-control" rows="5" name="problem" id="np_desc" placeholder="Add product description"></textarea></div>
+            <div class="mt-3">
+              <label class="form-label">Product Description</label>
+              <textarea class="form-control" rows="5" name="description" id="np_desc" placeholder="Add product description"></textarea>
+            </div>
+
+            <div class="mt-3">
+              <label class="form-label">Problem / Condition Note</label>
+              <textarea class="form-control" rows="3" name="problem" id="np_problem" placeholder="Add condition note"></textarea>
+            </div>
 
             <div class="np-actions-bar" style="background:#284466;padding:16px;border-radius:0 0 14px 14px;display:flex;justify-content:flex-end;gap:10px;">
               <button type="button" class="btn btn-light" data-bs-dismiss="modal">Back</button>
@@ -876,12 +960,16 @@ if ($totalPages > 1):
           const name=$('#np_name'); const pvName=document.getElementById('np_pv_name'); name?.addEventListener('input',()=>{ pvName.textContent=name.value||'—'; });
           const cat=$('#np_category'); const pvSub=document.getElementById('np_pv_sub'); cat?.addEventListener('change',()=>{ pvSub.textContent=cat.value||'Category'; });
 
-          // Desc → UL
+          // Desc → UL (pakai kolom description)
           const desc=$('#np_desc'); const pvList=document.getElementById('np_pv_list');
-          function renderDesc(text){ const lines=(text||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean).slice(0,4);
+          function renderDesc(text){
+            const lines=(text||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean).slice(0,4);
             const fallback=['dummy text of the printing and typesetting','it over 2000 years old','variations of passages','popularised in the 1960s'];
-            const items=lines.length?lines:fallback; pvList.innerHTML=items.map(t=>`<li>${t.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</li>`).join(''); }
-          renderDesc(desc?desc.value:''); desc&&desc.addEventListener('input',()=>renderDesc(desc.value));
+            const items=lines.length?lines:fallback;
+            pvList.innerHTML=items.map(t=>`<li>${t.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</li>`).join('');
+          }
+          renderDesc(desc?desc.value:'');
+          desc&&desc.addEventListener('input',()=>renderDesc(desc.value));
 
           setHero(null); buildPvThumbs([]); buildTiles([]);
         })();

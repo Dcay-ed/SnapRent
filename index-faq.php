@@ -35,16 +35,16 @@ if ($isLoggedIn) {
 
       <div class="thumb-strip">
         <div class="thumb-item">
-          <img src="auth/images/BGCamera.jpg" alt="Camera 1">
+          <img src="auth/images/Camera.jpg" alt="Camera 1">
         </div>
         <div class="thumb-item">
-          <img src="auth/images/BGCamera.jpg" alt="Camera 2">
+          <img src="auth/images/dark-photography.jpg" alt="Camera 2">
         </div>
         <div class="thumb-item">
-          <img src="auth/images/BGCamera.jpg" alt="Camera 3">
+          <img src="auth/images/stefzn-wS3lR30P8qA-unsplash.jpg" alt="Camera 3">
         </div>
         <div class="thumb-item">
-          <img src="auth/images/BGCamera.jpg" alt="Camera 4">
+          <img src="auth/images/thumb-1920-478024.jpg" alt="Camera 4">
         </div>
       </div>
     </div>

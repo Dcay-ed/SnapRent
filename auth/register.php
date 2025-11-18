@@ -2,14 +2,18 @@
 // /admin/register.php — SnapRent Register Page (Customer Only)
 require __DIR__ . '/auth.php';
 
-if (!function_exists('e')) { function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); } }
+if (!function_exists('e')) {
+  function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
+}
 if (session_status() === PHP_SESSION_NONE) { session_start(); }
 
 // ---- Helper cek kolom tabel ----
 if (!function_exists('has_column')) {
   function has_column(PDO $pdo, string $table, string $column): bool {
     $sql = "SELECT COUNT(*) FROM information_schema.COLUMNS
-            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?";
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = ?
+              AND COLUMN_NAME = ?";
     $st = $pdo->prepare($sql);
     $st->execute([$table, $column]);
     return (int)$st->fetchColumn() > 0;
@@ -17,15 +21,17 @@ if (!function_exists('has_column')) {
 }
 
 // ---- Ambil konfigurasi kolom ----
-$PWD_COL    = get_password_column($pdo);
+$PWD_COL    = get_password_column($pdo);          // fungsi dari auth.php
 $HAS_PHONE  = has_column($pdo, 'accounts', 'phone');
-$HAS_NAME   = has_column($pdo, 'accounts', 'name');
+$HAS_NAME   = has_column($pdo, 'accounts', 'name');     // di schema sekarang kemungkinan false
 $HAS_ACTIVE = has_column($pdo, 'accounts', 'is_active');
 
 // ---- CSRF ----
-if (empty($_SESSION['csrf'])) { $_SESSION['csrf'] = bin2hex(random_bytes(16)); }
+if (empty($_SESSION['csrf'])) {
+  $_SESSION['csrf'] = bin2hex(random_bytes(16));
+}
 
-$error = '';
+$error   = '';
 $success = false;
 
 // ---- Submit ----
@@ -38,10 +44,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user  = trim($_POST['username'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $phone = trim($_POST['phone'] ?? '');
-    $pass1 = $_POST['password'] ?? '';
+    $pass1 = $_POST['password']  ?? '';
     $pass2 = $_POST['password2'] ?? '';
 
-    if ($user==='' || $email==='' || $pass1==='' || $pass2==='') {
+    if ($user === '' || $email === '' || $pass1 === '' || $pass2 === '') {
       $error = 'Please fill all required fields.';
     } elseif ($pass1 !== $pass2) {
       $error = 'Passwords do not match.';
@@ -49,26 +55,72 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $error = 'Password must be at least 8 characters.';
     } else {
       try {
-        $st = $pdo->prepare("SELECT id FROM accounts WHERE username=? OR email=? LIMIT 1");
+        // cek username / email unik
+        $st = $pdo->prepare("SELECT id FROM accounts WHERE username = ? OR email = ? LIMIT 1");
         $st->execute([$user, $email]);
         if ($st->fetch()) {
           $error = 'Username or Email already taken.';
         } else {
-          $cols = ['username','email',"`{$PWD_COL}`",'role'];
-          $vals = ['?','?','?','\'CUSTOMER\''];
-          $params=[$user,$email,$pass1];
+          // Mulai transaksi supaya insert accounts + customers konsisten
+          $pdo->beginTransaction();
 
-          if($HAS_NAME){ $cols[]='name'; $vals[]='?'; $params[]=$name; }
-          if($HAS_PHONE){ $cols[]='phone'; $vals[]='?'; $params[]=$phone; }
-          if($HAS_ACTIVE){ $cols[]='is_active'; $vals[]='1'; }
+          // 1) INSERT ke accounts (role = CUSTOMER)
+          $cols   = ['username','email',"`{$PWD_COL}`",'role'];
+          $vals   = ['?','?','?',"'CUSTOMER'"];
+          $params = [$user,$email,$pass1];
 
-          $sql="INSERT INTO accounts(".implode(',',$cols).") VALUES(".implode(',',$vals).")";
-          $pdo->prepare($sql)->execute($params);
+          if ($HAS_NAME) {
+            $cols[]   = 'name';
+            $vals[]   = '?';
+            $params[] = $name;
+          }
+          if ($HAS_PHONE) {
+            $cols[]   = 'phone';
+            $vals[]   = '?';
+            $params[] = $phone;
+          }
+          if ($HAS_ACTIVE) {
+            $cols[] = 'is_active';
+            $vals[] = '1';
+          }
+
+          $sqlAcc = "INSERT INTO accounts(" . implode(',', $cols) . ")
+                     VALUES(" . implode(',', $vals) . ")";
+          $stmtAcc = $pdo->prepare($sqlAcc);
+          $stmtAcc->execute($params);
+
+          // id akun baru
+          $accountId = (int)$pdo->lastInsertId();
+
+          // 2) INSERT ke customers
+          //    - customer_id = id akun (supaya 1:1)
+          //    - full_name dari form
+          //    - address sementara diisi default, karena NOT NULL
+          $fullName       = $name !== '' ? $name : $user;
+          $defaultAddress = 'Alamat belum diisi';
+
+          $sqlCust = "INSERT INTO customers (customer_id, full_name, address)
+                      VALUES (?, ?, ?)";
+          $stmtCust = $pdo->prepare($sqlCust);
+          $stmtCust->execute([$accountId, $fullName, $defaultAddress]);
+
+          // 3) UPDATE accounts.customer_id supaya relasi dua arah
+          $sqlLink  = "UPDATE accounts SET customer_id = ? WHERE id = ?";
+          $stmtLink = $pdo->prepare($sqlLink);
+          $stmtLink->execute([$accountId, $accountId]);
+
+          // Commit transaksi
+          $pdo->commit();
 
           $success = true;
           header("Refresh:1; URL=login.php");
         }
-      } catch(Throwable $e){
+      } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+          $pdo->rollBack();
+        }
+        // Untuk debug bisa sementara di-echo:
+        // $error = 'Registration failed: ' . $e->getMessage();
         $error = 'Registration failed.';
       }
     }
@@ -191,10 +243,19 @@ html,body{height:100%;margin:0;font-family:Poppins,sans-serif;}
 <!-- SVG Icons -->
 <svg width="0" height="0" style="position:absolute;visibility:hidden">
 <defs>
-<symbol id="ico-camera" viewBox="0 0 64 48"><rect x="4" y="10" width="56" height="34" rx="6" fill="var(--icon)"/><circle cx="36" cy="27" r="12" fill="#fff" stroke="var(--icon)" stroke-width="4"/></symbol>
-<symbol id="ico-video" viewBox="0 0 64 44"><rect x="4" y="8" width="40" height="28" rx="6" fill="var(--icon)"/></symbol>
-<symbol id="ico-film"  viewBox="0 0 64 44"><rect x="6" y="8" width="52" height="28" rx="4" fill="var(--icon)"/></symbol>
-<symbol id="ico-lens"  viewBox="0 0 64 64"><circle cx="32" cy="32" r="22" fill="var(--icon)"/></symbol>
+<symbol id="ico-camera" viewBox="0 0 64 48">
+  <rect x="4" y="10" width="56" height="34" rx="6" fill="var(--icon)"/>
+  <circle cx="36" cy="27" r="12" fill="#fff" stroke="var(--icon)" stroke-width="4"/>
+</symbol>
+<symbol id="ico-video" viewBox="0 0 64 44">
+  <rect x="4" y="8" width="40" height="28" rx="6" fill="var(--icon)"/>
+</symbol>
+<symbol id="ico-film"  viewBox="0 0 64 44">
+  <rect x="6" y="8" width="52" height="28" rx="4" fill="var(--icon)"/>
+</symbol>
+<symbol id="ico-lens"  viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="22" fill="var(--icon)"/>
+</symbol>
 </defs>
 </svg>
 
@@ -208,17 +269,23 @@ html,body{height:100%;margin:0;font-family:Poppins,sans-serif;}
     <div class="grid">
 
       <div class="card">
-        <div class="brand-mini"><img class="brand-logo" src="images/logo.png"></div>
+        <div class="brand-mini">
+          <img class="brand-logo" src="images/logo.png" alt="SnapRent Logo">
+        </div>
         <div class="h-title">Create Your Customer Account</div>
 
-        <?php if($error): ?><div class="alert"><?php echo e($error); ?></div><?php endif; ?>
-        <?php if($success): ?><div class="success">Registration successful! Redirecting...</div><?php endif; ?>
+        <?php if ($error): ?>
+          <div class="alert"><?php echo e($error); ?></div>
+        <?php endif; ?>
+        <?php if ($success): ?>
+          <div class="success">Registration successful! Redirecting...</div>
+        <?php endif; ?>
 
         <form method="post" autocomplete="off" novalidate>
           <input type="hidden" name="csrf" value="<?php echo e($_SESSION['csrf']); ?>">
 
           <div class="label">Full Name</div>
-          <input class="input" type="text" name="fullname" placeholder="John Anthony" <?php echo $HAS_NAME?'required':''; ?>>
+          <input class="input" type="text" name="fullname" placeholder="John Anthony">
 
           <div class="label">Username</div>
           <input class="input" type="text" name="username" placeholder="johncam123" required>
@@ -226,31 +293,39 @@ html,body{height:100%;margin:0;font-family:Poppins,sans-serif;}
           <div class="label">Email</div>
           <input class="input" type="email" name="email" placeholder="you@example.com" required>
 
-          <?php if($HAS_PHONE): ?>
+          <?php if ($HAS_PHONE): ?>
           <div class="label">Phone (optional)</div>
           <input class="input" type="text" name="phone" placeholder="08xxxxxxxxxx">
           <?php endif; ?>
 
           <div class="label">Password</div>
           <div class="pw-wrap">
-            <input class="input" id="pw1" type="password" name="password" placeholder="Enter password..." required minlength="8">
+            <input class="input" id="pw1" type="password" name="password"
+                   placeholder="Enter password..." required minlength="8">
             <span class="pw-toggle" data-target="pw1">👁</span>
           </div>
 
           <div class="strength-bars">
-            <div class="bar" id="sb1"></div><div class="bar" id="sb2"></div>
-            <div class="bar" id="sb3"></div><div class="bar" id="sb4"></div>
+            <div class="bar" id="sb1"></div>
+            <div class="bar" id="sb2"></div>
+            <div class="bar" id="sb3"></div>
+            <div class="bar" id="sb4"></div>
           </div>
-          <div class="strength-label">Strength: <span id="strengthValue">-</span></div>
+          <div class="strength-label">
+            Strength: <span id="strengthValue">-</span>
+          </div>
 
           <div class="label">Re-enter Password</div>
           <div class="pw-wrap">
-            <input class="input" id="pw2" type="password" name="password2" placeholder="Repeat password..." required minlength="8">
+            <input class="input" id="pw2" type="password" name="password2"
+                   placeholder="Repeat password..." required minlength="8">
             <span class="pw-toggle" data-target="pw2">👁</span>
           </div>
 
           <button class="btn" type="submit">Create Account</button>
-          <div class="subtxt">Already have an account? <a href="login.php">Sign In</a></div>
+          <div class="subtxt">
+            Already have an account? <a href="login.php">Sign In</a>
+          </div>
         </form>
       </div>
 
@@ -259,7 +334,7 @@ html,body{height:100%;margin:0;font-family:Poppins,sans-serif;}
         <img class="hero-img" src="images/mascot register.png" alt="">
       </div>
 
-    </div>  
+    </div>
   </div>
 </div>
 
@@ -278,14 +353,23 @@ html,body{height:100%;margin:0;font-family:Poppins,sans-serif;}
   }
 
   /* RAIN */
-  function rain(id,c,min,max){let l=document.getElementById(id); if(!l)return;
+  function rain(id,c,min,max){
+    let l=document.getElementById(id);
+    if(!l)return;
     for(let i=0;i<c;i++){
-      let e=document.createElement('div'); e.className='icon-drop';
-      let sz=min+Math.random()*(max-min); e.style.width=e.style.height=sz+'px';
-      e.style.left=Math.random()*100+'vw'; e.style.animationDuration=(12+Math.random()*20)+'s';
-      let svg=document.createElementNS('http://www.w3.org/2000/svg','svg'); svg.setAttribute('viewBox','0 0 64 64');
-      let use=document.createElementNS('http://www.w3.org/2000/svg','use'); use.setAttributeNS('http://www.w3.org/1999/xlink','href','#ico-camera');
-      svg.appendChild(use); e.appendChild(svg); l.appendChild(e);
+      let e=document.createElement('div');
+      e.className='icon-drop';
+      let sz=min+Math.random()*(max-min);
+      e.style.width=e.style.height=sz+'px';
+      e.style.left=Math.random()*100+'vw';
+      e.style.animationDuration=(12+Math.random()*20)+'s';
+      let svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+      svg.setAttribute('viewBox','0 0 64 64');
+      let use=document.createElementNS('http://www.w3.org/2000/svg','use');
+      use.setAttributeNS('http://www.w3.org/1999/xlink','href','#ico-camera');
+      svg.appendChild(use);
+      e.appendChild(svg);
+      l.appendChild(e);
     }
   }
   rain('rainBack',28,14,28);
@@ -297,20 +381,40 @@ html,body{height:100%;margin:0;font-family:Poppins,sans-serif;}
   window.addEventListener('mousemove',(e)=>{
     const x=(e.clientX/window.innerWidth)-0.5;
     const y=(e.clientY/window.innerHeight)-0.5;
-    layers.forEach(el=>{let d=parseFloat(el.dataset.depth||.05);el.style.transform=`translate(${x*d*80}px,${y*d*60}px)`;});
+    layers.forEach(el=>{
+      let d=parseFloat(el.dataset.depth||.05);
+      el.style.transform=`translate(${x*d*80}px,${y*d*60}px)`;
+    });
   });
 
   /* STRENGTH METER */
   const pw1=document.getElementById('pw1');
   const bars=[sb1,sb2,sb3,sb4];
   const lbl=document.getElementById('strengthValue');
-  function sc(p){let s=0;if(p.length>=8)s++;if(/[a-z]/.test(p)&&/[A-Z]/.test(p))s++;if(/\d/.test(p))s++;if(/[^A-Za-z0-9]/.test(p))s++;return s;}
-  pw1.addEventListener('input',()=>{let s=sc(pw1.value);bars.forEach((b,i)=>b.className='bar'+(i<s?' fill-'+s:''));lbl.textContent=['Very Weak','Weak','Normal','Good','Strong'][s]||'-';});
+  function sc(p){
+    let s=0;
+    if(p.length>=8) s++;
+    if(/[a-z]/.test(p) && /[A-Z]/.test(p)) s++;
+    if(/\d/.test(p)) s++;
+    if(/[^A-Za-z0-9]/.test(p)) s++;
+    return s;
+  }
+  pw1.addEventListener('input',()=>{
+    let s=sc(pw1.value);
+    bars.forEach((b,i)=>{
+      b.className='bar'+(i<s ? ' fill-'+s : '');
+    });
+    const labels=['-','Weak','Normal','Good','Strong'];
+    lbl.textContent = labels[s] || '-';
+  });
 
   /* TOGGLE SHOW/HIDE PWD */
-  document.querySelectorAll('.pw-toggle').forEach(t=>t.addEventListener('click',()=>{
-    let f=document.getElementById(t.dataset.target);f.type=(f.type==='password'?'text':'password');
-  }));
+  document.querySelectorAll('.pw-toggle').forEach(t=>{
+    t.addEventListener('click',()=>{
+      let f=document.getElementById(t.dataset.target);
+      f.type = (f.type==='password' ? 'text' : 'password');
+    });
+  });
 
 })();
 </script>
