@@ -4,11 +4,34 @@
 // - Handle EDIT & CANCEL di file yang sama (POST)
 // - Modal Edit Bootstrap
 // - Payment disederhanakan → hanya tampil "Paid"
+// Asumsi: file ini di-include dari Dashboard/index.php yang sudah:
+//   - start session
+//   - require_login($pdo);
+//   - set $_SESSION['uid'] untuk semua role
+//   - set $_SESSION['csrf'] dan $csrf
 // ======================================================================
 
+// Pastikan helper aman tersedia
+if (!function_exists('e')) {
+    function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
+}
+if (!function_exists('rupiah')) {
+    function rupiah($n){ return 'Rp '.number_format((float)$n,0,',','.'); }
+}
+
+// Ambil CSRF token dari session (kalau ada)
+$csrfToken = $_SESSION['csrf'] ?? ($csrf ?? '');
 
 // ========== HANDLE POST (EDIT / CANCEL) DI FILE INI ==========
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['rental_id'])) {
+
+    // --- Validasi CSRF ---
+    $csrfPost = $_POST['csrf'] ?? '';
+    if (!$csrfToken || !$csrfPost || !hash_equals($csrfToken, $csrfPost)) {
+        http_response_code(400);
+        echo "Invalid CSRF token.";
+        exit;
+    }
 
     $action    = $_POST['action'];
     $rental_id = (int)$_POST['rental_id'];
@@ -20,15 +43,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['ren
         $status    = $_POST['status'] ?? 'pending';
         $total     = $_POST['total_price'] ?? 0;
 
-        // Convert datetime-local → MySQL
+        // Convert datetime-local → MySQL (YYYY-MM-DD HH:ii:ss)
         $start = $start_raw ? str_replace('T', ' ', $start_raw) . ':00' : null;
         $end   = $end_raw   ? str_replace('T', ' ', $end_raw)   . ':00' : null;
 
+        // Normalisasi status ke daftar yang diizinkan
+        $allowedStatus = ['pending','confirmed','rented','returned','cancelled'];
+        if (!in_array($status, $allowedStatus, true)) {
+            $status = 'pending';
+        }
+
+        $total = is_numeric($total) ? (float)$total : 0;
+
         $stmt = $pdo->prepare("
             UPDATE rentals
-            SET start_date = :start_date,
-                end_date = :end_date,
-                status = :status,
+            SET start_date  = :start_date,
+                end_date    = :end_date,
+                status      = :status,
                 total_price = :total_price
             WHERE id = :id
         ");
@@ -51,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['ren
     }
 
     // Mencegah resubmit F5
-    header("Location: " . $_SERVER['REQUEST_URI']);
+    header("Location: " . strtok($_SERVER['REQUEST_URI'], '?') . '?' . http_build_query($_GET));
     exit;
 }
 
@@ -67,7 +98,7 @@ $orders = $pdo->query("
     rn.end_date,
     rn.total_price,
     acc.username AS customer,
-    cam.name AS camera,
+    cam.name     AS camera,
     COALESCE(v.paid_amount, 0) AS paid_amount,
     v.last_payment_status
   FROM rentals rn
@@ -81,10 +112,9 @@ $orders = $pdo->query("
     ON v.rental_id = rn.id
   ORDER BY rn.created_at DESC
   LIMIT 200
-")->fetchAll();
+")->fetchAll(PDO::FETCH_ASSOC);
+
 ?>
-
-
 
 <div class="d-flex justify-content-between align-items-center mb-4">
   <div>
@@ -95,8 +125,6 @@ $orders = $pdo->query("
     <i class="fas fa-download"></i> Export/Print
   </button>
 </div>
-
-
 
 <div class="page-card">
   <div class="table-responsive">
@@ -132,7 +160,7 @@ $orders = $pdo->query("
             </span>
           </td>
 
-          <!-- PAYMENT = Paid -->
+          <!-- PAYMENT disederhanakan → selalu tampil Paid -->
           <td>
             <span class="badge bg-success">Paid</span>
           </td>
@@ -151,7 +179,8 @@ $orders = $pdo->query("
             <!-- BUTTON CANCEL -->
             <form method="POST" class="d-inline">
               <input type="hidden" name="action" value="cancel">
-              <input type="hidden" name="rental_id" value="<?= $o['id'] ?>">
+              <input type="hidden" name="rental_id" value="<?= (int)$o['id'] ?>">
+              <input type="hidden" name="csrf" value="<?= e($csrfToken) ?>">
               <button class="btn btn-sm btn-outline-danger"
                       onclick="return confirm('Yakin cancel rental ini?')">
                 <i class="fas fa-times"></i> Cancel
@@ -167,27 +196,25 @@ $orders = $pdo->query("
   </div>
 </div>
 
-
-
-
 <!-- ======================= MODAL EDIT RENTAL ======================= -->
 <?php foreach ($orders as $o): ?>
-
 <?php
 $startValue = !empty($o['start_date']) ? date('Y-m-d\TH:i', strtotime($o['start_date'])) : '';
 $endValue   = !empty($o['end_date'])   ? date('Y-m-d\TH:i', strtotime($o['end_date']))   : '';
 ?>
-
-<div class="modal fade" id="editRentalModal<?= $o['id'] ?>" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="editRentalModal<?= (int)$o['id'] ?>" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
 
       <form method="POST">
         <input type="hidden" name="action" value="edit">
-        <input type="hidden" name="rental_id" value="<?= $o['id'] ?>">
+        <input type="hidden" name="rental_id" value="<?= (int)$o['id'] ?>">
+        <input type="hidden" name="csrf" value="<?= e($csrfToken) ?>">
 
         <div class="modal-header">
-          <h5 class="modal-title">Edit Rental #<?= $o['id'] ?> — <?= e($o['camera']) ?></h5>
+          <h5 class="modal-title">
+            Edit Rental #<?= (int)$o['id'] ?> — <?= e($o['camera']) ?>
+          </h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
 
@@ -196,13 +223,13 @@ $endValue   = !empty($o['end_date'])   ? date('Y-m-d\TH:i', strtotime($o['end_da
           <div class="mb-3">
             <label class="form-label">Start Date</label>
             <input type="datetime-local" name="start_date" class="form-control"
-                   value="<?= $startValue ?>">
+                   value="<?= e($startValue) ?>">
           </div>
 
           <div class="mb-3">
             <label class="form-label">End Date</label>
             <input type="datetime-local" name="end_date" class="form-control"
-                   value="<?= $endValue ?>">
+                   value="<?= e($endValue) ?>">
           </div>
 
           <div class="mb-3">
@@ -220,7 +247,7 @@ $endValue   = !empty($o['end_date'])   ? date('Y-m-d\TH:i', strtotime($o['end_da
           <div class="mb-3">
             <label class="form-label">Total Price</label>
             <input type="number" name="total_price" class="form-control"
-                   value="<?= $o['total_price'] ?>" step="1000">
+                   value="<?= (float)$o['total_price'] ?>" step="1000">
           </div>
 
         </div>
@@ -235,5 +262,4 @@ $endValue   = !empty($o['end_date'])   ? date('Y-m-d\TH:i', strtotime($o['end_da
     </div>
   </div>
 </div>
-
 <?php endforeach; ?>

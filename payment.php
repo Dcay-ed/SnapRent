@@ -4,6 +4,20 @@ declare(strict_types=1);
 error_reporting(E_ALL);
 ini_set('display_errors', '1');
 
+/* ===================== SESSION & CEK LOGIN CUSTOMER ===================== */
+if (session_status() === PHP_SESSION_NONE) {
+  session_start();
+}
+
+$customerId = $_SESSION['uid'] ?? ($_SESSION['user_id'] ?? null);
+$role       = $_SESSION['role'] ?? '';
+
+if (!$customerId || $role !== 'CUSTOMER') {
+  // Kalau user belum login atau bukan CUSTOMER → lempar ke login
+  header("Location: auth/login.php");
+  exit;
+}
+
 /* ===================== KONEKSI DATABASE ===================== */
 /* Sesuaikan path dengan file lain (index.php, details.php, dll.) */
 $paths = [
@@ -18,7 +32,7 @@ foreach ($paths as $p) {
 }
 if (!$found) {
   http_response_code(500);
-  echo "Tidak menemukan file database/db.php. Pastikan path benar relatif dari checkout.php.";
+  echo "Tidak menemukan file database/db.php. Pastikan path benar relatif dari payment.php.";
   exit;
 }
 
@@ -38,6 +52,11 @@ $camera_id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
 // tanggal sewa (dukung beberapa nama param)
 $start_raw = $_GET['start']      ?? $_GET['start_date'] ?? null;
 $end_raw   = $_GET['end']        ?? $_GET['end_date']   ?? null;
+
+// optional: days dikirim dari checkout.php (kalau ada)
+$days_param = filter_input(INPUT_GET, 'days', FILTER_VALIDATE_INT, [
+  'options' => ['min_range' => 1]
+]);
 
 if (!$camera_id || !$start_raw || !$end_raw) {
   http_response_code(400);
@@ -80,6 +99,10 @@ if ($days <= 0) {
   $days = 1;
 }
 
+// kalau ada days dari query & valid, bisa dipakai hanya untuk diteruskan,
+// tapi perhitungan tetap berdasarkan tanggal supaya konsisten
+$days_for_forward = $days_param ?: $days;
+
 // harga harian dari DB (decimal string -> float -> int)
 $daily_rate = (int)round((float)$camera['daily_price']); // contoh: "120000.00" -> 120000
 
@@ -108,11 +131,12 @@ $return_date = $end_dt->format('M d, Y') . ' by 6:00 PM';
 $camera_name = $camera['name'];
 $camera_type = $camera['type'] ?: $camera['brand'];
 
-// query string untuk dilempar (kalau mau dipakai lagi)
+// query string untuk dilempar ke receipt.php
 $query = http_build_query([
   'id'    => $camera_id,
   'start' => $start_raw,
   'end'   => $end_raw,
+  'days'  => $days_for_forward,
 ]);
 
 // Fungsi format uang Rupiah
@@ -120,7 +144,6 @@ function formatRupiah($amount) {
   return 'Rp ' . number_format((float)$amount, 0, ',', '.');
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -259,13 +282,6 @@ function formatRupiah($amount) {
             margin: 0 10px;
         }
 
-        .step.active .step-circle {
-            background-color: #2ecc71;
-            color: white;
-        }
-        .step.active .step-label {
-            color: #2ecc71;
-        }
         .step.completed .step-circle {
             background-color: #2ecc71;
             color: white;

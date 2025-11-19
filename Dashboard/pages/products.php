@@ -11,6 +11,25 @@
 //           sedangkan cameras.problem tetap untuk Problem / condition_note
 // ======================================================================
 
+// ---------- SESSION & AUTH (PAKAI $_SESSION['uid']) ----------
+if (session_status() === PHP_SESSION_NONE) {
+  session_start();
+}
+
+// Cek sudah login atau belum
+if (!isset($_SESSION['uid'])) {
+  header('Location: ../auth/login.php');
+  exit;
+}
+
+// Batasi role: hanya OWNER & STAFF yang boleh akses products
+$role = $_SESSION['role'] ?? '';
+if (!in_array($role, ['OWNER', 'STAFF'], true)) {
+  http_response_code(403);
+  echo "<h2>Akses ditolak</h2><p>Halaman Products hanya dapat diakses oleh OWNER atau STAFF.</p>";
+  exit;
+}
+
 // ---------- Konfigurasi ----------
 const MAX_IMAGES_PER_PRODUCT = 6;
 const MAX_FILE_SIZE_BYTES    = 8 * 1024 * 1024; // 8MB  
@@ -177,7 +196,7 @@ function handleMultiUploadsForCamera(PDO $pdo, int $cid, string $field, int $max
 }
 
 // ---------- CSRF ----------
-if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+// (session sudah start di atas, jadi ini aman)
 if (empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(16));
 $csrf = $_SESSION['csrf'];
 
@@ -762,7 +781,7 @@ foreach($cameras as $cam):
                 const bg=getComputedStyle(el).backgroundImage||""; const m=bg.match(/url\(["']?(.*?)["']?\)/i); return m?m[1]:null;
               }).filter(Boolean);
             }
-            const initial = (()=>{ try{return JSON.parse(pvRoot.dataset.images||"[]")}catch(_){return []} })();
+            const initial = (()=>{ try{return JSON.parse(pvRoot.dataset.images||"[]" )}catch(_){return []} })();
             if(initial.length){ setHero(initial[0]); buildPvThumbs(initial); } else { setHero(null); buildPvThumbs([]); }
 
             // New files preview

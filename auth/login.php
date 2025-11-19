@@ -93,8 +93,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
       echo json_encode(['ok'=>false,'message'=>'Account not found or inactive.']); exit;
     }
 
+    // === SIMPAN PASSWORD BARU DALAM BENTUK HASH ===
+    $newHash = password_hash($pwd1, PASSWORD_DEFAULT);
+
     $upd = $pdo->prepare("UPDATE accounts SET `{$PWD_COL}` = :pwd WHERE id = :id");
-    $upd->execute([':pwd'=>$pwd1, ':id'=>$u['id']]);
+    $upd->execute([
+      ':pwd' => $newHash,
+      ':id'  => $u['id']
+    ]);
 
     echo json_encode(['ok'=>true,'message'=>'Password has been reset. You can sign in now.']); exit;
   } catch (Throwable $e) {
@@ -136,14 +142,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') !== 'forgo
         } elseif ((int)$u['is_active'] !== 1) {
           $error = 'Account is inactive.';
         } else {
-          if ((string)$u['pwd'] === $pass) {
+          // ===== VERIFIKASI PASSWORD HASH =====
+          $storedHash = (string)($u['pwd'] ?? '');
+
+          if ($storedHash !== '' && password_verify($pass, $storedHash)) {
+            // (Opsional) rehash jika algoritma sudah usang
+            if (password_needs_rehash($storedHash, PASSWORD_DEFAULT)) {
+              try {
+                $newHash = password_hash($pass, PASSWORD_DEFAULT);
+                $upd = $pdo->prepare("UPDATE accounts SET `{$PWD_COL}` = :pwd WHERE id = :id");
+                $upd->execute([
+                  ':pwd' => $newHash,
+                  ':id'  => $u['id']
+                ]);
+              } catch (Throwable $e) {
+                // abaikan error rehash, tidak mengganggu login
+              }
+            }
+
+            // ====== LOGIN SUKSES: gunakan $_SESSION['uid'] untuk SEMUA ROLE ======
+            $role = strtoupper((string)$u['role']);
+
+            // ID akun utama (accounts.id) — dipakai di semua halaman
             $_SESSION['uid']   = (int)$u['id'];
-            $_SESSION['role']  = strtoupper((string)$u['role']);
+            $_SESSION['role']  = $role;
             $_SESSION['uname'] = (string)($u['username'] ?? '');
             $_SESSION['email'] = (string)($u['email'] ?? '');
-            
+
+            // Normalisasi ID per-role, semuanya berbasis $_SESSION['uid']
+            unset($_SESSION['owner_id'], $_SESSION['staff_id'], $_SESSION['customer_id']);
+            if ($role === 'OWNER') {
+              $_SESSION['owner_id'] = $_SESSION['uid'];
+            } elseif ($role === 'STAFF') {
+              $_SESSION['staff_id'] = $_SESSION['uid'];
+            } elseif ($role === 'CUSTOMER' || $role === 'COSTUMER') {
+              $_SESSION['customer_id'] = $_SESSION['uid'];
+            }
+
             // Redirect berdasarkan role SETELAH login berhasil
-            $role = strtoupper((string)$u['role']);
             if ($role === 'CUSTOMER' || $role === 'COSTUMER') {
               header('Location: ../index.php');
             } else {
@@ -238,7 +274,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') !== 'forgo
 
   /* ===== Modal Forgot Password (glass + desain seperti gambar) ===== */
   .modal-wrap{
-    position:fixed; inset:0; display:none; /* tidak pakai flex-center lagi */
+    position:fixed; inset:0; display:none;
     z-index:50; background:rgba(15,32,55,.35); backdrop-filter: blur(2px);
   }
   .modal{
@@ -246,8 +282,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') !== 'forgo
     background:linear-gradient(180deg,rgba(255,255,255,.80),rgba(255,255,255,.60));
     border:1px solid var(--glass-stroke);
     border-radius:28px; box-shadow:var(--shadow); padding:28px 26px 24px;
-
-    /* penting: akan diposisikan via JS agar sejajar card */
     position:fixed; left:50%; top:50%; transform:translate(-50%,-50%);
   }
   .modal-head{ display:flex; flex-direction:column; align-items:center; gap:12px; margin-bottom:10px; }
@@ -261,10 +295,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') !== 'forgo
   .modal .input{ height:44px; border-radius:12px; background:rgba(255,255,255,.8); }
   .modal .hint{ font-size:12px; color:#8aa0b6; margin-top:6px; }
 
-  /* Strength bars */
   .strength-bars{ display:flex; gap:10px; margin:10px 0 0; }
   .bar{ flex:1; height:8px; border-radius:6px; background:#e6edf7; overflow:hidden; }
-  .bar.fill{ background:#a7dfb0; }          /* hijau muda saat terisi */
+  .bar.fill{ background:#a7dfb0; }
   .strength-text{ font-size:12px; margin-top:6px; }
   .strength-text .val.ok{ color:var(--ok); }
   .strength-text .val.warn{ color:var(--warn); }
@@ -476,10 +509,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') !== 'forgo
     const r = loginCard.getBoundingClientRect();
     const vw = window.innerWidth || document.documentElement.clientWidth;
 
-    // Pada layar kecil: tetap center
     if (vw <= 1024) { centerModal(); return; }
 
-    // Posisi sejajar dengan card (kiri & top card)
     const left = Math.round(r.left + window.scrollX);
     const top  = Math.round(r.top  + window.scrollY);
 
@@ -496,10 +527,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') !== 'forgo
     if (form) { form.reset(); }
     if (msg)  { msg.textContent=''; msg.className='hint'; }
 
-    // posisi awal sejajar card
     positionModalToCard();
 
-    // re-position saat resize/scroll
     window.addEventListener('resize', positionModalToCard);
     window.addEventListener('scroll', positionModalToCard, { passive:true });
   }
@@ -520,7 +549,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') !== 'forgo
     window.addEventListener('keydown', e=>{ if(e.key==='Escape' && modalWrap.getAttribute('aria-hidden')==='false') closeModal(); });
   }
 
-  /* ===== Strength meter (tetap) ===== */
   function score(p){ let s=0; if(p.length>=8) s++; if(/[a-z]/.test(p)&&/[A-Z]/.test(p)) s++; if(/\d/.test(p)) s++; if(/[^A-Za-z0-9]/.test(p)) s++; return s; }
   function updateStrength(p){
     const sc=score(p);
@@ -533,7 +561,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') !== 'forgo
   }
   if (pwd1){ pwd1.addEventListener('input', e=>updateStrength(e.target.value||'')); }
 
-  /* ===== AJAX submit (tetap) ===== */
   if (form){
     form.addEventListener('submit', async (e)=>{
       e.preventDefault();

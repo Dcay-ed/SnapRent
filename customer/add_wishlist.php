@@ -5,17 +5,22 @@ declare(strict_types=1);
 session_start();
 header('Content-Type: application/json');
 
-// ================== CEK LOGIN CUSTOMER ==================
-$customerId = $_SESSION['uid'] ?? ($_SESSION['user_id'] ?? null);
+// ================== CEK LOGIN CUSTOMER (standar baru) ==================
+$uid  = isset($_SESSION['uid']) ? (int)$_SESSION['uid'] : 0;
+$role = strtoupper((string)($_SESSION['role'] ?? ''));
 
-if (!$customerId) {
+// Hanya izinkan CUSTOMER / COSTUMER yang sudah login
+if ($uid <= 0 || !in_array($role, ['CUSTOMER', 'COSTUMER'], true)) {
     http_response_code(401);
     echo json_encode([
         'status'  => 'error',
-        'message' => 'Silakan login terlebih dahulu.'
+        'message' => 'Silakan login sebagai customer terlebih dahulu.'
     ]);
     exit;
 }
+
+// Di seluruh app, kita samakan: customerId = accounts.id (uid)
+$customerId = $uid;
 
 // ================== KONEKSI DATABASE ==================
 $paths = [

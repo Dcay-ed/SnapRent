@@ -215,31 +215,6 @@ if (!function_exists('rupiah')) {
     box-shadow: 0 0 0 4px rgba(34,197,94,0.25);
   }
 
-  .user-profile { 
-    display: flex; 
-    align-items: center; 
-    gap: 8px; 
-    cursor: pointer; 
-    transition: all 0.3s; 
-  }
-
-  .user-avatar {
-    width: 45px;
-    height: 45px;
-    background-color: #6b8cbb;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 24px;
-  }
-
-  .user-profile .fa-chevron-down {
-    font-size: 12px;
-    color: #4a5568;
-  }
-
   /* Content Area - Fit dalam satu layar */
   .content-area { 
     padding: 20px 35px; 

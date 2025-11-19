@@ -1,18 +1,22 @@
 <?php
-session_start();
+// booking.php — Halaman My Booking & Wishlist (Customer)
 
-// ========== CEK LOGIN ==========
-if (!isset($_SESSION['user']) && !isset($_SESSION['uid'])) {
-    header("Location: index.php");
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// ========== CEK LOGIN DENGAN STANDAR BARU (uid) ==========
+if (!isset($_SESSION['uid']) || (int)$_SESSION['uid'] <= 0) {
+    // Belum login → lempar ke halaman login
+    header("Location: ../auth/login.php");
     exit;
 }
 
-// Ambil ID customer dari session (sesuaikan kalau kamu pakai nama lain)
-$customerId = $_SESSION['uid'] ?? ($_SESSION['user_id'] ?? null);
-if (!$customerId) {
-    header("Location: index.php");
-    exit;
-}
+// Ambil ID customer dari session (id di tabel accounts)
+$customerId = (int)$_SESSION['uid'];
+
+// (Opsional) role kalau mau dipakai nanti
+$currentRole = strtoupper((string)($_SESSION['role'] ?? ''));
 
 // ========== KONEKSI DB ==========
 $paths = [
@@ -215,7 +219,7 @@ if ($tab !== 'wishlist') {
     <!-- CSS utama customer -->
     <link rel="stylesheet" href="assets/style.css">
 
-    <!-- FONT AWESOME (tambah baris ini) -->
+    <!-- FONT AWESOME -->
     <link rel="stylesheet"
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
@@ -556,7 +560,7 @@ if ($tab !== 'wishlist') {
 </head>
 <body>
     <div class="container">
-        <!-- Sidebar (SAMA DENGAN index.php) -->
+        <!-- Sidebar (SAMA DENGAN index.php customer) -->
         <aside class="sidebar">
 
             <!-- BACK TO HOME -->

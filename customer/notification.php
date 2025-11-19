@@ -1,13 +1,21 @@
 <?php
-session_start();
+// notification.php — SnapRent • Customer Notifications
 
-/* ===================== CEK LOGIN CUSTOMER ===================== */
-if (!isset($_SESSION['uid']) || (($_SESSION['role'] ?? '') !== 'CUSTOMER')) {
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+/* ===================== CEK LOGIN CUSTOMER (standar baru) ===================== */
+$uid   = isset($_SESSION['uid']) ? (int)$_SESSION['uid'] : 0;
+$role  = strtoupper((string)($_SESSION['role'] ?? ''));
+
+// Hanya izinkan CUSTOMER / COSTUMER yang sudah login
+if ($uid <= 0 || !in_array($role, ['CUSTOMER', 'COSTUMER'], true)) {
     header("Location: ../auth/login.php");
     exit;
 }
 
-$accountId = (int) $_SESSION['uid'];
+$accountId = $uid;
 
 /* ===================== KONEKSI DATABASE ===================== */
 $paths = [
@@ -171,7 +179,7 @@ usort($notifications, function($a, $b){
     <meta charset="UTF-8">
     <title>Notification - SnapRent</title>
     <link rel="stylesheet" href="assets/style.css">
-    <!-- Font Awesome, biar icon <i class="fas fa-users"> dll muncul -->
+    <!-- Font Awesome -->
     <link rel="stylesheet"
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
           integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
@@ -179,31 +187,31 @@ usort($notifications, function($a, $b){
 </head>
 <body class="notification-page">
     <div class="container">
-        <!-- Sidebar tetap seperti desain awal -->
-    <aside class="sidebar">
+        <!-- Sidebar -->
+        <aside class="sidebar">
 
-        <!-- BACK TO HOME -->
-        <a href="../index.php" class="back-home">
-            <i class="fas fa-arrow-left"></i> Back to Home
-        </a>
-
-        <!-- MENU UTAMA -->
-        <nav>
-            <a href="index.php"><i class="fas fa-users"></i> Profile</a>
-            <a href="booking.php"><i class="far fa-folder-open"></i> Booking</a>
-            <a href="notification.php" class="active"><i class="far fa-bell"></i> Notification</a>
-        </nav>
-
-        <!-- LOG OUT PALING BAWAH -->
-        <div class="sidebar-footer">
-            <a href="../auth/logout.php" class="sidebar-logout">
-                <i class="fas fa-sign-out-alt"></i>
-                <span>Log Out</span>
+            <!-- BACK TO HOME -->
+            <a href="../index.php" class="back-home">
+                <i class="fas fa-arrow-left"></i> Back to Home
             </a>
-        </div>
-    </aside>
 
-        <!-- Main content pakai desain NOTIFICATIONS card (tidak diubah) -->
+            <!-- MENU UTAMA -->
+            <nav>
+                <a href="index.php"><i class="fas fa-users"></i> Profile</a>
+                <a href="booking.php"><i class="far fa-folder-open"></i> Booking</a>
+                <a href="notification.php" class="active"><i class="far fa-bell"></i> Notification</a>
+            </nav>
+
+            <!-- LOG OUT PALING BAWAH -->
+            <div class="sidebar-footer">
+                <a href="../auth/logout.php" class="sidebar-logout">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Log Out</span>
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main content -->
         <main class="main-content">
             <div class="notif-inner">
                 <h1 class="notif-title">NOTIFICATIONS</h1>

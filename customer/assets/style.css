@@ -146,7 +146,7 @@ header {
 /* Footer sidebar (logout di bawah) */
 /* Footer sidebar (logout di bawah) */
 .sidebar-footer {
-    margin-top: auto;          /* dorong ke paling bawah dalam .sidebar */
+    margin-top: 500px;          /* dorong ke paling bawah dalam .sidebar */
     padding-top: 2rem;
 }
 
@@ -482,62 +482,57 @@ header {
 }
 
 /* ===================================================================
-   NOTIFICATION PAGE (MIRIP MOCKUP)
+   NOTIFICATION PAGE (FOLLOW MY BOOKING LAYOUT)
    =================================================================== */
 
+/* Body notification mengikuti background abu-abu lembut seperti booking */
 .notification-page {
-    background: linear-gradient(120deg, #f5f7fb 0%, #eef2fb 40%, #e6ecf8 100%);
-    position: relative;
+    background-color: #f5f5f5;
 }
 
+/* Hilangkan teks besar "Notificat" di belakang */
 .notification-page::before {
-    content: "Notificat";
-    position: fixed;
-    top: 80px;
-    right: -40px;
-    font-size: 140px;
-    font-weight: 700;
-    color: rgba(255, 255, 255, 0.8);
-    pointer-events: none;
-    letter-spacing: 2px;
+    content: none;
 }
 
+/* Main content notification sekarang jadi card putih seperti My Booking */
 .notification-page .main-content {
-    background: transparent;
-    box-shadow: none;
-    border-radius: 0;
-    margin: 0;
-    padding: 40px 40px;
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
+    flex: 1;
+    padding: 2rem;
+    background-color: #ffffff;
+    margin: 1rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    display: block;          /* kembalikan ke block biasa, bukan flex center */
 }
 
+/* Bungkus bagian dalam supaya konten rapih */
 .notif-inner {
-    max-width: 920px;
+    max-width: 100%;
     width: 100%;
 }
 
+/* Judul notifications mengikuti style heading utama */
 .notif-title {
-    font-size: 24px;
+    font-size: 1.8rem;
     font-weight: 700;
     color: #2a2f45;
-    margin-bottom: 22px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    margin-bottom: 1.5rem;
 }
 
+/* Card list notifikasi (kotak putih di dalam main-content) */
 .notifications-list {
     background: #ffffff;
-    border-radius: 6px;
-    box-shadow: 0 20px 40px rgba(15, 35, 90, 0.08);
-    padding: 26px 34px;
+    border-radius: 10px;
+    box-shadow: 0 8px 20px rgba(15, 35, 90, 0.06);
+    padding: 20px 24px;
 }
 
+/* Tiap item notifikasi jadi baris dengan border bawah tipis */
 .notification-item {
     display: flex;
     align-items: flex-start;
-    padding: 18px 0;
+    padding: 14px 0;
     border-bottom: 1px solid #f1f2f6;
     position: relative;
 }
@@ -546,18 +541,19 @@ header {
     border-bottom: none;
 }
 
+/* Tombol close bulat kecil di kiri */
 .close-btn {
-    width: 26px;
-    height: 26px;
+    width: 24px;
+    height: 24px;
     background: #f3f4f7;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 15px;
+    font-size: 14px;
     color: #b3b8c7;
     cursor: pointer;
-    margin-right: 18px;
+    margin-right: 14px;
     flex-shrink: 0;
     box-shadow: 0 0 0 1px #e4e7f0 inset;
     transition: background 0.2s ease, color 0.2s ease;
@@ -568,15 +564,17 @@ header {
     color: #8c93aa;
 }
 
+/* Isi utama notifikasi */
 .notification-content {
     flex: 1;
     min-width: 0;
 }
 
+/* Label kecil berwarna (Payment, Deadline, dst.) */
 .label {
     display: inline-block;
     padding: 3px 10px;
-    border-radius: 3px;
+    border-radius: 4px;
     font-size: 11px;
     font-weight: 700;
     color: #ffffff;
@@ -584,14 +582,14 @@ header {
     text-transform: none;
 }
 
-.label.green  { background: #2ecc71; }
-.label.orange { background: #f39c12; }
+.label.green  { background: #2ecc71; }  /* success */
+.label.orange { background: #f39c12; }  /* payment */
 .label.purple { background: #9b59b6; }
-.label.blue   { background: #00a8ff; }
+.label.blue   { background: #00a8ff; }  /* deadline */
 
 .notification-content h3 {
     font-size: 14px;
-    margin-bottom: 5px;
+    margin-bottom: 4px;
     color: #2d3248;
     font-weight: 600;
 }
@@ -599,7 +597,7 @@ header {
 .notification-content p {
     font-size: 13px;
     color: #7a8197;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     line-height: 1.5;
 }
 
@@ -610,13 +608,14 @@ header {
     font-weight: 700;
 }
 
+/* Waktu notifikasi di sisi kanan */
 .notification-time {
     display: flex;
     align-items: center;
     font-size: 12px;
     color: #a1a7be;
     white-space: nowrap;
-    margin-left: 18px;
+    margin-left: 16px;
     flex-shrink: 0;
 }
 
@@ -624,6 +623,29 @@ header {
     margin-right: 6px;
     stroke: #c4cadc;
 }
+
+/* Responsive – kalau layar kecil, waktu turun ke bawah */
+@media (max-width: 900px) {
+    .notification-page .main-content {
+        margin: 0.5rem;
+        padding: 1.25rem;
+    }
+
+    .notifications-list {
+        padding: 16px 16px;
+    }
+
+    .notification-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+    }
+
+    .notification-time {
+        margin-left: 0;
+    }
+}
+
 
 @media (max-width: 900px) {
     .notification-page .main-content {

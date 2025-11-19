@@ -64,10 +64,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           // Mulai transaksi supaya insert accounts + customers konsisten
           $pdo->beginTransaction();
 
+          // === HASH PASSWORD SEBELUM DISIMPAN ===
+          $hashedPassword = password_hash($pass1, PASSWORD_DEFAULT);
+
           // 1) INSERT ke accounts (role = CUSTOMER)
           $cols   = ['username','email',"`{$PWD_COL}`",'role'];
           $vals   = ['?','?','?',"'CUSTOMER'"];
-          $params = [$user,$email,$pass1];
+          $params = [$user, $email, $hashedPassword];
 
           if ($HAS_NAME) {
             $cols[]   = 'name';

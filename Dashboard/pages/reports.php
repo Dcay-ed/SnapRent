@@ -3,6 +3,25 @@
 // reports.php — SnapRent Reports (Analytic & Insight)
 // ======================================================================
 
+// ---------- SESSION & AUTH (PAKAI $_SESSION['uid']) ----------
+if (session_status() === PHP_SESSION_NONE) {
+  session_start();
+}
+
+// Cek sudah login atau belum
+if (!isset($_SESSION['uid'])) {
+  header('Location: ../auth/login.php');
+  exit;
+}
+
+// Batasi role: hanya OWNER & STAFF yang boleh akses reports
+$role = $_SESSION['role'] ?? '';
+if (!in_array($role, ['OWNER', 'STAFF'], true)) {
+  http_response_code(403);
+  echo "<h2>Akses ditolak</h2><p>Halaman Reports hanya dapat diakses oleh OWNER atau STAFF.</p>";
+  exit;
+}
+
 // ===================== 1. PERFORMANCE OVERVIEW (Last 7 Days) =====================
 $labels_7d  = [];
 $revenue_7d = [];

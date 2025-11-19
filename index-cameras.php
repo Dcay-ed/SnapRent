@@ -3,12 +3,16 @@ require __DIR__ . '/database/db.php';
 $title = 'SnapRent - Cameras';
 
 session_start();
-$isLoggedIn = isset($_SESSION['uid']); 
 
+// gunakan $_SESSION['uid'] sebagai acuan login (semua role)
+$isLoggedIn = isset($_SESSION['uid']);
+$userId     = isset($_SESSION['uid']) ? (int)$_SESSION['uid'] : null;
+
+// header: jika login pakai header utama, kalau tidak pakai home-header
 if ($isLoggedIn) {
-    require __DIR__ . '/partials/header.php'; 
+    require __DIR__ . '/partials/header.php';
 } else {
-    require __DIR__ . '/partials/home-header.php'; 
+    require __DIR__ . '/partials/home-header.php';
 }
 
 // ================== AMBIL DATA KAMERA + GAMBAR ==================
@@ -52,9 +56,11 @@ try {
         // Ambil ID kamera pertama dari hasil query jika tersedia
         $first_camera_id = !empty($cameras) ? (int)$cameras[0]['id'] : null;
         // Tentukan URL tujuan tombol "Rent now" di hero
-        $hero_rent_url = $first_camera_id ? 'details.php?id=' . $first_camera_id : (isset($_SESSION['uid']) ? 'Customer/index.php' : 'auth/login.php');
+        $hero_rent_url = $first_camera_id
+            ? 'details.php?id=' . $first_camera_id
+            : ($isLoggedIn ? 'Customer/index.php' : 'auth/login.php');
         ?>
-        <a class="btn-primary rent-btn" href="<?php echo $hero_rent_url; ?>">
+        <a class="btn-primary rent-btn" href="<?php echo htmlspecialchars($hero_rent_url, ENT_QUOTES, 'UTF-8'); ?>">
             <span class="btn-text">Rent now</span>
             <span class="btn-icon">
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
@@ -292,25 +298,32 @@ try {
                 <p>Belum ada produk yang diupload.</p>
             <?php else: ?>
                 <?php foreach ($cameras as $cam): 
-                    $imgUrl = !empty($cam['image'])
-                        ? 'Dashboard/uploads/cameras/' . $cam['id'] . '/' . $cam['image']
-                        : 'img/placeholder-camera.jpg';
+                    $imgUrl = null;
+                    if (!empty($cam['image'])) {
+                        // encode filename supaya aman untuk spasi/simbol
+                        $imgUrl = 'Dashboard/uploads/cameras/' . (int)$cam['id'] . '/' . rawurlencode($cam['image']);
+                    } else {
+                        $imgUrl = 'img/placeholder-camera.jpg';
+                    }
 
-                    $searchText = strtolower($cam['name'] . ' ' . $cam['brand']);
-                    $typeLower  = strtolower($cam['type']); // Analog/Digicam/DSLR/Mirrorless
+                    $searchText = strtolower(($cam['name'] ?? '') . ' ' . ($cam['brand'] ?? ''));
+                    $typeLower  = strtolower($cam['type'] ?? ''); // Analog/Digicam/DSLR/Mirrorless
                 ?>
                     <div class="product-card"
-                         data-category="<?= htmlspecialchars($typeLower); ?>"
-                         data-search="<?= htmlspecialchars($searchText); ?>">
+                         data-category="<?php echo htmlspecialchars($typeLower, ENT_QUOTES, 'UTF-8'); ?>"
+                         data-search="<?php echo htmlspecialchars($searchText, ENT_QUOTES, 'UTF-8'); ?>">
                         <div class="product-image">
-                            <img src="<?= htmlspecialchars($imgUrl); ?>" alt="<?= htmlspecialchars($cam['name']); ?>">
+                            <img src="<?php echo htmlspecialchars($imgUrl, ENT_QUOTES, 'UTF-8'); ?>"
+                                 alt="<?php echo htmlspecialchars($cam['name'] ?? 'Camera', ENT_QUOTES, 'UTF-8'); ?>">
                         </div>
                         <div class="product-info">
-                            <h3 class="product-name"><?= htmlspecialchars($cam['name']); ?></h3>
+                            <h3 class="product-name">
+                                <?php echo htmlspecialchars($cam['name'] ?? 'Camera', ENT_QUOTES, 'UTF-8'); ?>
+                            </h3>
                             <p class="product-price">
-                                Rp <?= number_format((float)$cam['daily_price'], 0, ',', '.'); ?>/hari
+                                Rp <?php echo number_format((float)($cam['daily_price'] ?? 0), 0, ',', '.'); ?>/hari
                             </p>
-                            <a href="details.php?id=<?= (int)$cam['id']; ?>" class="btn-rent">Rent now</a>
+                            <a href="details.php?id=<?php echo (int)$cam['id']; ?>" class="btn-rent">Rent now</a>
                         </div>
                     </div>
                 <?php endforeach; ?>

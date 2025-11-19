@@ -1,10 +1,17 @@
-<?php
+<?php 
 declare(strict_types=1);
 
-/* ===================== KONEKSI (meniru products.php) ===================== */
+/* ===================== ERROR REPORTING ===================== */
 error_reporting(E_ALL);
 ini_set('display_errors', '1');
 
+/* ===================== SESSION (pakai $_SESSION['uid']) ===================== */
+if (session_status() === PHP_SESSION_NONE) {
+  session_start();
+}
+$customerId = $_SESSION['uid'] ?? ($_SESSION['user_id'] ?? null);
+
+/* ===================== KONEKSI (meniru products.php) ===================== */
 /* cari file koneksi yang biasa dipakai */
 $paths = [
   __DIR__ . '/database/db.php',
@@ -63,6 +70,83 @@ function db_all(string $sql, array $params = []) : array {
   $stmt->execute();
   $res = $stmt->get_result();
   return $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+}
+
+/* ===================== AJAX: UPDATE HELPFUL DI DB ===================== */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'helpful') {
+  header('Content-Type: application/json; charset=utf-8');
+
+  // pastikan login
+  if (!$customerId) {
+    echo json_encode([
+      'status'  => 'error',
+      'message' => 'LOGIN_REQUIRED'
+    ]);
+    exit;
+  }
+
+  $reviewId = isset($_POST['review_id']) ? (int)$_POST['review_id'] : 0;
+  if ($reviewId <= 0) {
+    echo json_encode([
+      'status'  => 'error',
+      'message' => 'INVALID_REVIEW'
+    ]);
+    exit;
+  }
+
+  // batasi 1x per session per review
+  if (!isset($_SESSION['helpful_clicked']) || !is_array($_SESSION['helpful_clicked'])) {
+    $_SESSION['helpful_clicked'] = [];
+  }
+  if (!empty($_SESSION['helpful_clicked'][$reviewId])) {
+    echo json_encode([
+      'status'  => 'error',
+      'message' => 'ALREADY'
+    ]);
+    exit;
+  }
+
+  try {
+    if ($USE_PDO) {
+      // naikkan helpful +1
+      $up = $pdo->prepare("UPDATE reviews SET helpful = helpful + 1 WHERE id = :id");
+      $up->execute([':id' => $reviewId]);
+
+      // ambil nilai terbaru
+      $st = $pdo->prepare("SELECT helpful FROM reviews WHERE id = :id");
+      $st->execute([':id' => $reviewId]);
+      $row = $st->fetch(PDO::FETCH_ASSOC);
+      $newCount = (int)($row['helpful'] ?? 0);
+    } else {
+      // MySQLi
+      $up = $conn->prepare("UPDATE reviews SET helpful = helpful + 1 WHERE id = ?");
+      $up->bind_param("i", $reviewId);
+      $up->execute();
+
+      $st = $conn->prepare("SELECT helpful FROM reviews WHERE id = ?");
+      $st->bind_param("i", $reviewId);
+      $st->execute();
+      $res = $st->get_result();
+      $row = $res ? $res->fetch_assoc() : null;
+      $newCount = (int)($row['helpful'] ?? 0);
+    }
+
+    // tandai di session -> 1 id user cuma bisa sekali per review (per session)
+    $_SESSION['helpful_clicked'][$reviewId] = true;
+
+    echo json_encode([
+      'status'  => 'ok',
+      'helpful' => $newCount
+    ]);
+    exit;
+
+  } catch (Throwable $e) {
+    echo json_encode([
+      'status'  => 'error',
+      'message' => 'DB_ERROR'
+    ]);
+    exit;
+  }
 }
 
 /* ambil id fleksibel + fallback */
@@ -127,8 +211,9 @@ $images = db_all(
 );
 
 $reviews = db_all(
-  "SELECT id, customer_id, rating, comment, created_at
-   FROM reviews WHERE camera_id = ?
+  "SELECT id, customer_id, rating, comment, created_at, helpful
+   FROM reviews
+   WHERE camera_id = ?
    ORDER BY created_at DESC, id DESC",
   [$cameraId]
 );
@@ -140,6 +225,18 @@ $agg = db_row(
 );
 $totalReviews = (int)($agg['total_reviews'] ?? 0);
 $avgRating    = $agg['avg_rating'] !== null ? round((float)$agg['avg_rating'], 1) : null;
+
+/* ===================== CEK SUDAH DI WISHLIST BELUM ===================== */
+$inWishlist = false;
+if ($customerId) {
+  $rowWish = db_row(
+    "SELECT id FROM wishlists WHERE customer_id = ? AND camera_id = ? LIMIT 1",
+    [$customerId, $cameraId]
+  );
+  if ($rowWish && isset($rowWish['id'])) {
+    $inWishlist = true;
+  }
+}
 
 /* ===================== UTIL TAMPILAN ===================== */
 function build_img_url(array $img, int $cameraId): string {
@@ -238,7 +335,7 @@ $today = date('Y-m-d');
 /* ===================== Design Tokens ===================== */
 :root{
   --bg:#ffffff;
-  --header-bg:#5f6c75;
+  --header-bg:#293743;
   --text-color:#293743;
   --secondary-text:#637584;
   --card-bg:#f8f9fa;
@@ -256,11 +353,11 @@ html,body{
   margin:0;
   background:var(--bg);
   color:var(--text-color);
-  font-family:"Poppins",system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif
+  font-family:"SF Pro Text","Poppins",system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif
 }
 a{color:inherit;text-decoration:none}
 
-/* ===================== Header ===================== */
+/* ===================== Header Modern ===================== */
 .header{
   position:fixed;
   inset:0 0 auto 0;
@@ -268,60 +365,120 @@ a{color:inherit;text-decoration:none}
   background:var(--header-bg);
   display:flex;
   align-items:center;
-  gap:24px;
-  padding:0 32px;
-  z-index:10;
+  justify-content:center;
+  padding:0 24px;
+  z-index:20;
+  box-shadow:0 1px 4px rgba(0,0,0,.18);
 }
-.header .brand{
+.header-inner{
+  width:min(1180px,100%);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+}
+
+/* brand kiri (logo + text) */
+.brand{
   display:flex;
   align-items:center;
   gap:10px;
-  color:#fff;
-  font-weight:600
+  color:#f9fafb;
 }
-.header .brand .logo{
-  width:30px;
-  height:30px;
-  border-radius:50%;
-  display:grid;
-  place-items:center;
-  background:rgba(255,255,255,.15);
-  font-size:14px
+.brand-mark{
+  width:32px;
+  height:32px;
+  border-radius:9px;
+  background:rgba(15,23,42,.7);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
 }
-.header .search{
+.brand-mark img{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+}
+.brand-text{
+  display:flex;
+  flex-direction:column;
+  line-height:1.1;
+}
+.brand-name{
+  font-size:16px;
+  font-weight:600;
+}
+.brand-tagline{
+  font-size:11px;
+  opacity:.75;
+}
+
+/* tengah: search ala Apple */
+.header-center{
   flex:1;
   display:flex;
   justify-content:center;
 }
-.header .search .searchbar{
-  width:min(680px,86%);
-  height:36px;
-  border-radius:20px;
-  background:#fff;
+.searchbar{
+  width:min(520px,100%);
+  height:32px;
+  border-radius:999px;
+  background:rgba(255,255,255,.12);
   display:flex;
   align-items:center;
-  gap:10px;
-  padding:0 14px;
+  padding:0 12px;
+  gap:8px;
+  border:1px solid rgba(148,163,184,.4);
+  backdrop-filter:blur(22px);
 }
-.header .search input{
+.searchbar input{
   flex:1;
   border:none;
   outline:none;
-  font-size:14px;
-  color:#3a4652;
+  background:transparent;
+  font-size:13px;
+  color:#e5e7eb;
 }
-.header .icons{
+.searchbar input::placeholder{
+  color:rgba(209,213,219,.78);
+}
+.search-icon{
+  font-size:13px;
+  opacity:.85;
+}
+
+/* kanan: icon menu */
+.header-actions{
   display:flex;
   align-items:center;
-  gap:18px;
-  color:#fff;
+  gap:10px;
 }
-.header .icons .ico{
-  width:20px;
-  height:20px;
-  display:grid;
-  place-items:center;
+.icon-button{
+  width:30px;
+  height:30px;
+  border-radius:999px;
+  border:none;
+  background:rgba(15,23,42,.35);
+  display:flex;
+  align-items:center;
+  justify-content:center;
   cursor:pointer;
+  transition:transform .16s ease, background .16s ease, box-shadow .16s ease;
+  color:#f9fafb;
+  font-size:14px;
+}
+.icon-button:hover{
+  background:rgba(15,23,42,.7);
+  box-shadow:0 4px 10px rgba(0,0,0,.35);
+  transform:translateY(-1px);
+}
+.icon-button a{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:100%;
+  height:100%;
 }
 
 /* ===================== Page Frame ===================== */
@@ -417,10 +574,6 @@ a{color:inherit;text-decoration:none}
   0%   { transform:scale(1);   box-shadow:var(--shadow); }
   40%  { transform:scale(1.18); box-shadow:0 8px 18px rgba(0,0,0,.18); }
   100% { transform:scale(1);   box-shadow:var(--shadow); }
-}
-.fav-added{
-  background:#ffeff1;
-  color:#e11d48;
 }
 .fav-badge{
   display:none;
@@ -763,26 +916,48 @@ a{color:inherit;text-decoration:none}
   cursor:pointer;
 }
 .help:hover{color:var(--text-color)}
+.help-locked{
+  opacity:.55;
+  cursor:default;
+  pointer-events:none;
+}
 </style>
 </head>
 <body>
   <!-- ================= Header ================= -->
   <header class="header">
-    <div class="brand">
-      <div class="logo">📷</div>
-      <span>SnapRent</span>
-    </div>
-    <div class="search">
-      <div class="searchbar">
-        <input type="text" placeholder="Search"/>
-        <span>🔍</span>
+    <div class="header-inner">
+      <!-- Brand kiri -->
+      <a href="index.php" class="brand">
+        <div class="brand-mark">
+          <img src="auth/images/logo.png" alt="SnapRent Logo">
+        </div>
+        <div class="brand-text">
+          <span class="brand-name">SnapRent</span>
+          <span class="brand-tagline">Camera Rental</span>
+        </div>
+      </a>
+
+      <!-- Search tengah -->
+      <div class="header-center">
+        <div class="searchbar">
+          <span class="search-icon">🔍</span>
+          <input type="text" placeholder="Search cameras, lenses, brands...">
+        </div>
       </div>
-    </div>
-    
-    <div class="icons">
-      <a class="ico" href="customer/index.php">👤</a>
-      <a class="ico" href="customer/notification.php">🔔</a>
-      <a class="ico" href="customer/booking.php">🛒</a>
+
+      <!-- Actions kanan -->
+      <div class="header-actions">
+        <button class="icon-button" title="Profile">
+          <a href="customer/index.php">👤</a>
+        </button>
+        <button class="icon-button" title="Notifications">
+          <a href="customer/notification.php">🔔</a>
+        </button>
+        <button class="icon-button" title="Bookings">
+          <a href="customer/booking.php">🛒</a>
+        </button>
+      </div>
     </div>
   </header>
 
@@ -809,9 +984,19 @@ a{color:inherit;text-decoration:none}
             <?php else: ?>
               Gambar Utama Kamera
             <?php endif; ?>
-            <button class="fav" type="button" id="favBtn" data-camera-id="<?= (int)$cameraId ?>">
+            <button
+              class="fav<?= $inWishlist ? ' fav-added' : '' ?>"
+              type="button"
+              id="favBtn"
+              data-camera-id="<?= (int)$cameraId ?>"
+              data-initial="<?= $inWishlist ? '1' : '0' ?>"
+            >
               ❤
-              <span class="fav-badge" id="favBadge" style="display:none;">❤️</span>
+              <span
+                class="fav-badge"
+                id="favBadge"
+                style="<?= $inWishlist ? 'display:flex;' : 'display:none;' ?>"
+              >❤️</span>
             </button>
           </div>
           <div class="thumbs" id="thumbs">
@@ -938,24 +1123,32 @@ a{color:inherit;text-decoration:none}
 
         <div class="list">
           <?php if (!empty($reviews)): ?>
-            <?php foreach ($reviews as $r): ?>
-              <div class="card"
-                   data-rating="<?= e($r['rating']) ?>"
-                   data-created="<?= e($r['created_at']) ?>">
-                <div class="avatar"></div>
-                <div>
-                  <div class="meta">
-                    <span class="name">Cust #<?= e($r['customer_id']) ?></span>
-                    <span class="time"><?= e($r['created_at']) ?></span>
-                  </div>
-                  <div class="revstars"><?= render_stars($r['rating']) ?></div>
-                  <?php if (!empty($r['comment'])): ?>
-                    <div class="rtext"><?= nl2br(e($r['comment'])) ?></div>
-                  <?php endif; ?>
-                  <div class="help" data-help="0">👍 <span>Helpfull (0)</span></div>
+          <?php foreach ($reviews as $r): 
+            $helpCount = (int)($r['helpful'] ?? 0);
+            $already   = !empty($_SESSION['helpful_clicked'][$r['id'] ?? 0]);
+          ?>
+            <div class="card"
+                data-rating="<?= e($r['rating']) ?>"
+                data-created="<?= e($r['created_at']) ?>">
+              <div class="avatar"></div>
+              <div>
+                <div class="meta">
+                  <span class="name">Cust #<?= e($r['customer_id']) ?></span>
+                  <span class="time"><?= e($r['created_at']) ?></span>
+                </div>
+                <div class="revstars"><?= render_stars($r['rating']) ?></div>
+                <?php if (!empty($r['comment'])): ?>
+                  <div class="rtext"><?= nl2br(e($r['comment'])) ?></div>
+                <?php endif; ?>
+                <div class="help<?= $already ? ' help-locked' : '' ?>"
+                    data-help="<?= $helpCount ?>"
+                    data-review-id="<?= (int)$r['id'] ?>"
+                    data-locked="<?= $already ? '1' : '0' ?>">
+                  👍 <span>Helpfull (<?= $helpCount ?>)</span>
                 </div>
               </div>
-            <?php endforeach; ?>
+            </div>
+          <?php endforeach; ?>
           <?php else: ?>
             <div class="card">
               <div class="avatar"></div>
@@ -976,7 +1169,7 @@ a{color:inherit;text-decoration:none}
   </main>
 
 <script>
-// Validasi tanggal + alur ke checkout
+// ===================== Validasi tanggal + alur ke checkout =====================
 const startDate = document.getElementById('startDate');
 const endDate   = document.getElementById('endDate');
 const rentNow   = document.getElementById('rentNow');
@@ -1010,17 +1203,66 @@ rentNow?.addEventListener('click', (e) => {
   window.location.href = url;
 });
 
-// tombol "helpful"
+// ===================== HELPFUL AJAX =====================
+// ambil user id dari PHP
+const CURRENT_USER_ID = <?= $customerId ? (int)$customerId : 'null' ?>;
+// URL untuk AJAX (pakai halaman ini sendiri + query ?id=)
+const HELP_URL = "details.php?id=<?= (int)$cameraId ?>";
+
+// tombol "helpful" – 1 user hanya bisa sekali per review (dibatasi di session & DB)
 document.querySelectorAll('.help').forEach(el => {
-  el.addEventListener('click', () => {
-    const span  = el.querySelector('span');
-    const match = span.textContent.match(/\d+/);
-    const n     = (match ? parseInt(match[0],10) : 0) + 1;
-    span.textContent = `Helpfull (${n})`;
+  el.addEventListener('click', async () => {
+    // harus login
+    if (!CURRENT_USER_ID) {
+      alert('Silakan login terlebih dahulu untuk memberi tanda helpful pada review.');
+      return;
+    }
+
+    // kalau sudah di-lock di session (class / data-locked)
+    if (el.dataset.locked === '1') {
+      alert('Kamu sudah menandai review ini sebagai helpful.');
+      return;
+    }
+
+    const reviewId = el.getAttribute('data-review-id');
+    if (!reviewId) return;
+
+    const form = new FormData();
+    form.append('action', 'helpful');
+    form.append('review_id', reviewId);
+
+    try {
+      const res  = await fetch(HELP_URL, {
+        method: 'POST',
+        body: form,
+        credentials: 'same-origin'
+      });
+      const data = await res.json();
+
+      if (data.status === 'ok') {
+        const span = el.querySelector('span');
+        if (span && typeof data.helpful !== 'undefined') {
+          span.textContent = `Helpfull (${data.helpful})`;
+        }
+        el.dataset.locked = '1';
+        el.classList.add('help-locked');
+      } else if (data.message === 'ALREADY') {
+        alert('Kamu sudah menandai review ini sebelumnya.');
+        el.dataset.locked = '1';
+        el.classList.add('help-locked');
+      } else if (data.message === 'LOGIN_REQUIRED') {
+        alert('Silakan login terlebih dahulu.');
+      } else {
+        alert('Gagal menyimpan helpful. Coba lagi nanti.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Gagal koneksi ke server.');
+    }
   });
 });
 
-// Filter & sort reviews: Most Recent / All Ratings
+// ===================== Filter & sort reviews =====================
 (function(){
   const btnRecent = document.getElementById('btnRecent');
   const btnAll    = document.getElementById('btnAll');
@@ -1077,7 +1319,7 @@ document.querySelectorAll('.help').forEach(el => {
   });
 })();
 
-// Gallery: klik thumb -> ganti gambar utama
+// ===================== Gallery: klik thumb -> ganti gambar utama =====================
 (function(){
   const mainImg = document.getElementById('mainImg');
   const thumbs  = document.getElementById('thumbs');
@@ -1097,7 +1339,8 @@ document.querySelectorAll('.help').forEach(el => {
 
   if (!btn) return;
 
-  let isWish = false; // state front-end
+  // state awal dari server (sudah di-wishlist atau belum)
+  let isWish = (btn.dataset.initial === '1');
 
   btn.addEventListener('click', async () => {
     const cid = btn.dataset.cameraId;

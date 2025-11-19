@@ -6,6 +6,12 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// Wajib login dulu (pakai $_SESSION['uid'] seperti halaman admin lain)
+if (!isset($_SESSION['uid'])) {
+    header('Location: ../auth/login.php');
+    exit;
+}
+
 // Pastikan koneksi PDO dari index.php sudah ada
 if (!isset($pdo) || !($pdo instanceof PDO)) {
     http_response_code(500);
@@ -95,7 +101,11 @@ if ($cameraId > 0) {
          * - reviews.comment     -> kolom teks review
          * - reviews.created_at  -> kolom tanggal dibuat
          * - customers.customer_id & customers.full_name
-         * - accounts.customer_id & accounts.username
+         * - accounts.id & accounts.username
+         *
+         * Catatan:
+         *   Di schema SnapRent, relasi biasanya:
+         *   customers.customer_id = accounts.id
          */
         $sqlDetail = "
             SELECT 
@@ -109,7 +119,7 @@ if ($cameraId > 0) {
             LEFT JOIN customers cust 
                 ON r.customer_id = cust.customer_id
             LEFT JOIN accounts acc 
-                ON cust.customer_id = acc.customer_id
+                ON cust.customer_id = acc.id
             WHERE r.camera_id = :cid
             ORDER BY r.created_at DESC, r.id DESC
         ";

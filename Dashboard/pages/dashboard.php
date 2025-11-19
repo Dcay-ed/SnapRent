@@ -43,7 +43,7 @@ $stmt = $pdo->prepare("SELECT COUNT(*) FROM rentals WHERE created_at BETWEEN ? A
 $stmt->execute([$prev_start,$prev_end]);
 $total_sales_prev = (int)$stmt->fetchColumn();
 
-// Total revenue dari rentals.total_price (status: confirmed/ongoing/completed)
+// Total revenue dari rentals.total_price (status sewa tertentu)
 $stmt = $pdo->prepare("
   SELECT COALESCE(SUM(total_price),0)
   FROM rentals
@@ -63,12 +63,22 @@ $stmt = $pdo->prepare("
 $stmt->execute([$prev_start,$prev_end]);
 $total_revenue_prev = (float)$stmt->fetchColumn();
 
-// New customers
-$stmt = $pdo->prepare("SELECT COUNT(*) FROM accounts WHERE role='CUSTOMER' AND created_at BETWEEN ? AND ?");
+// New customers (CUSTOMER + COSTUMER)
+$stmt = $pdo->prepare("
+  SELECT COUNT(*)
+  FROM accounts
+  WHERE UPPER(role) IN ('CUSTOMER','COSTUMER')
+    AND created_at BETWEEN ? AND ?
+");
 $stmt->execute([$start_month,$end_month]);
 $new_customers = (int)$stmt->fetchColumn();
 
-$stmt = $pdo->prepare("SELECT COUNT(*) FROM accounts WHERE role='CUSTOMER' AND created_at BETWEEN ? AND ?");
+$stmt = $pdo->prepare("
+  SELECT COUNT(*)
+  FROM accounts
+  WHERE UPPER(role) IN ('CUSTOMER','COSTUMER')
+    AND created_at BETWEEN ? AND ?
+");
 $stmt->execute([$prev_start,$prev_end]);
 $new_customers_prev = (int)$stmt->fetchColumn();
 
@@ -189,9 +199,11 @@ $recent_orders->execute([$start_month,$end_month]);
 $recent_orders = $recent_orders->fetchAll(PDO::FETCH_ASSOC);
 
 
-// Nama admin (opsional)
+// Nama admin (opsional) – sinkron dengan login yang set $_SESSION['uname']
 $currentAdminName = $currentAdminName
-  ?? ($_SESSION['admin_name'] ?? ($_SESSION['username'] ?? 'Name'));
+  ?? ($_SESSION['uname']
+  ?? ($_SESSION['admin_name']
+  ?? ($_SESSION['username'] ?? 'Admin')));
 
 
 // Helper URL gambar kamera
@@ -342,7 +354,7 @@ a{text-decoration:none;color:inherit}
 @media (max-width:768px){
   .kpis{grid-template-columns:1fr}
   .thead{display:none}
-  .trow{grid-template-columns:1fr;gap:6px}
+  .trow{display:grid;grid-template-columns:1fr;gap:6px}
 }
 </style>
 
@@ -508,13 +520,8 @@ if (ctx){
       responsive:true,
       maintainAspectRatio:false,
       devicePixelRatio:1,
-      layout: {
-        padding: 0
-      },
-      interaction: {
-        mode: 'index',
-        intersect: false,
-      },
+      layout: { padding: 0 },
+      interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: {
           display: true,
@@ -525,11 +532,7 @@ if (ctx){
             padding: 5,
             boxWidth: 10,
             boxHeight: 10,
-            font: {
-              size: 10,
-              family: 'Poppins',
-              weight: '600'
-            }
+            font: { size: 10, family: 'Poppins', weight: '600' }
           }
         },
         tooltip: {
@@ -542,16 +545,8 @@ if (ctx){
           padding: 12,
           cornerRadius: 8,
           displayColors: true,
-          titleFont: {
-            size: 12,
-            family: 'Poppins',
-            weight: '700'
-          },
-          bodyFont: {
-            size: 11,
-            family: 'Poppins',
-            weight: '500'
-          },
+          titleFont: { size: 12, family: 'Poppins', weight: '700' },
+          bodyFont: { size: 11, family: 'Poppins', weight: '500' },
           usePointStyle: true,
           boxWidth: 8,
           boxHeight: 8,
@@ -590,11 +585,7 @@ if (ctx){
           ticks: {
             color: '#e9edf7',
             padding: 4,
-            font: {
-              size: 10,
-              family: 'Poppins',
-              weight: '500'
-            }
+            font: { size: 10, family: 'Poppins', weight: '500' }
           }
         },
         y: {
@@ -611,11 +602,7 @@ if (ctx){
           ticks: {  
             color: '#e9edf7',
             padding: 4,
-            font: {
-              size: 10,
-              family: 'Poppins',
-              weight: '500'
-            },
+            font: { size: 10, family: 'Poppins', weight: '500' },
             callback: function(value) {
               if (value >= 1000000) return (value/1000000).toFixed(1) + 'M';
               if (value >= 1000) return (value/1000).toFixed(0) + 'K';

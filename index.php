@@ -2,8 +2,24 @@
 require __DIR__ . '/database/db.php';
 $title = 'SnapRent';
 
-session_start();
-$isLoggedIn = isset($_SESSION['uid']);
+// Pastikan session aktif
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Standar baru: pakai $_SESSION['uid'] sebagai ID utama
+$isLoggedIn     = isset($_SESSION['uid']) && (int)$_SESSION['uid'] > 0;
+$currentUserId  = $isLoggedIn ? (int)$_SESSION['uid'] : null;
+$currentRole    = $isLoggedIn ? strtoupper((string)($_SESSION['role'] ?? '')) : null;
+
+/**
+ * Kalau user sudah login dan rolenya OWNER / STAFF,
+ * jangan lihat landing page — lempar langsung ke Dashboard.
+ */
+if ($isLoggedIn && in_array($currentRole, ['OWNER', 'STAFF'], true)) {
+    header('Location: Dashboard/index.php');
+    exit;
+}
 
 /* ===================== TOP RENTED CAMERAS (FEATURED EQUIPMENT) ===================== */
 $topCameras = [];
@@ -86,6 +102,7 @@ if (isset($pdo) && $pdo instanceof PDO) {
     }
 }
 
+// Header untuk user login vs guest
 if ($isLoggedIn) {
     require __DIR__ . '/partials/header.php';
 } else {
@@ -103,7 +120,7 @@ if ($isLoggedIn) {
         <h1>SnapRent</h1>
         <div class="kicker">Rent Your Perfect Camera</div>
         <p class="lead">Affordable, flexible, and ready when you are</p>
-        <a class="btn-primary rent-btn" href="<?php echo isset($_SESSION['uid']) ? 'Customer/index.php' : 'auth/login.php'; ?>">
+        <a class="btn-primary rent-btn" href="<?php echo $isLoggedIn ? 'Customer/index.php' : 'auth/login.php'; ?>">
           <span class="btn-text">Rent now</span>
           <span class="btn-icon">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
@@ -201,8 +218,6 @@ if ($isLoggedIn) {
   <div class="container">
     <h3 class="section-title">FEATURED EQUIPMENT</h3>
     <p class="section-sub">Discover our most rented cameras, perfect for any creative project</p>
-
-    <!-- Pills Mirrorless / DSLR / Digicam / Analog dihapus sesuai permintaan -->
 
     <div class="carousel" id="carousel">
       <button class="chev" id="chevLeft" aria-label="Previous">

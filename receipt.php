@@ -5,6 +5,16 @@ error_reporting(E_ALL);
 ini_set('display_errors', '1');
 session_start();
 
+/* ===================== CEK LOGIN CUSTOMER ===================== */
+$customerId = $_SESSION['uid'] ?? ($_SESSION['user_id'] ?? null);
+$role       = $_SESSION['role'] ?? '';
+
+if (!$customerId || $role !== 'CUSTOMER') {
+    // kalau belum login / bukan CUSTOMER, lempar ke login
+    header("Location: auth/login.php");
+    exit;
+}
+
 /* ===================== KONEKSI DATABASE ===================== */
 $paths = [
     __DIR__ . '/database/db.php',
@@ -32,10 +42,15 @@ if (!$USE_PDO && !$USE_MYSQLI) {
 }
 
 /* ===================== AMBIL PARAMETER RENTAL ===================== */
-// Dilewatkan dari payment/checkout: ?id=CAMERA_ID&start=YYYY-MM-DD&end=YYYY-MM-DD
+// Dilewatkan dari payment/checkout: ?id=CAMERA_ID&start=YYYY-MM-DD&end=YYYY-MM-DD&days=...
 $camera_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 $start_raw = $_GET['start'] ?? ($_GET['start_date'] ?? null);
 $end_raw   = $_GET['end']   ?? ($_GET['end_date']   ?? null);
+
+// optional: days kalau dikirim dari payment.php (backup)
+$days_param = filter_input(INPUT_GET, 'days', FILTER_VALIDATE_INT, [
+    'options' => ['min_range' => 1]
+]);
 
 /* Optional: nama customer & metode pembayaran dari query string */
 $customer_name   = trim($_GET['name']   ?? '');
@@ -44,7 +59,7 @@ if ($customer_name === '') {
     $customer_name = 'SnapRent Customer';
 }
 if ($payment_method === '') {
-    $payment_method = 'Credit Card'; // default, bisa diganti "E-banking" kalau mau
+    $payment_method = 'Credit Card'; // default
 }
 
 /* VALIDASI DASAR */
@@ -84,7 +99,7 @@ if (!$camera) {
     exit;
 }
 
-/* ===================== HITUNG LAMA SEWA & TOTAL ===================== */
+/* ===================== HITUNG LAMA SEWA & TOTAL (SAMA DENGAN payment.php) ===================== */
 try {
     $start_dt = new DateTime($start_raw);
     $end_dt   = new DateTime($end_raw);
@@ -100,17 +115,28 @@ if ($days <= 0) {
     $days = 1;
 }
 
+// kalau ada days dari query & valid, hanya sebagai informasi,
+// perhitungan tetap pakai selisih tanggal supaya konsisten
+$days_for_display = $days_param ?: $days;
+
 // daily_price di DB biasanya DECIMAL/string → ubah ke float lalu int
 $daily_rate = (int)round((float)$camera['daily_price']);
 
-// deposit (samakan dengan payment.php)
+// deposit (SAMA dengan payment.php)
 $security_deposit = 50000;
 
-// TOTAL BAYAR (disimpan ke DB dalam bentuk angka, ditampilkan format rupiah)
-$total = ($daily_rate * $days) + $security_deposit;
+// SUBTOTAL: sebelum diskon
+$subtotal = $daily_rate * $days;
+
+// DISKON 15% kalau sewa 7 hari atau lebih (SAMA dengan payment.php)
+$discount_rate   = ($days >= 7) ? 0.15 : 0;
+$discount_amount = (int)round($subtotal * $discount_rate);
+
+// TOTAL BAYAR (disimpan ke DB & ditampilkan)
+$total = $subtotal - $discount_amount + $security_deposit;
 
 // periode untuk tampilan, contoh: "Oct 27 – Oct 30 (3 days)"
-$rental_period = $start_dt->format('M d') . ' – ' . $end_dt->format('M d') . ' (' . $days . ' days)';
+$rental_period = $start_dt->format('M d') . ' – ' . $end_dt->format('M d') . ' (' . $days_for_display . ' days)';
 
 // tanggal untuk disimpan ke DB (DATETIME)
 $start_db = $start_dt->format('Y-m-d 00:00:00');
@@ -121,13 +147,13 @@ function formatRupiah($amount): string {
     return 'Rp ' . number_format((float)$amount, 0, ',', '.');
 }
 
-/* ===================== TENTUKAN CUSTOMER ID ===================== */
-/*
-   Ideal: customer login → simpan di $_SESSION['customer_id'].
-   Untuk sementara, kalau belum ada session, pakai ID demo (misal: 3)
-   supaya tidak error NOT NULL di kolom customer_id.
-*/
-$customer_id = isset($_SESSION['customer_id']) ? (int)$_SESSION['customer_id'] : 3;
+/* ===================== TENTUKAN CUSTOMER ID DARI SESSION ===================== */
+$customer_id = (int)$customerId;
+if ($customer_id <= 0) {
+    http_response_code(400);
+    echo "Customer tidak valid (session uid tidak ditemukan).";
+    exit;
+}
 
 /* ===================== SIMPAN / PASTIKAN DATA DI TABLE rentals ===================== */
 $rental_id = null;
@@ -166,6 +192,13 @@ if ($USE_PDO) {
         ]);
         $rental_id = (int)$pdo->lastInsertId();
     }
+
+    // OPTIONAL: kalau mau kamera langsung tidak tersedia, bisa uncomment:
+    /*
+    $upCam = $pdo->prepare("UPDATE cameras SET status = 'unavailable' WHERE id = :id");
+    $upCam->execute([':id' => $camera_id]);
+    */
+
 } else {
     // MySQLi
     $check = $conn->prepare("
@@ -192,11 +225,18 @@ if ($USE_PDO) {
         $ins->execute();
         $rental_id = (int)$conn->insert_id;
     }
+
+    // OPTIONAL update status kamera (MySQLi):
+    /*
+    $upCam = $conn->prepare("UPDATE cameras SET status = 'unavailable' WHERE id = ?");
+    $upCam->bind_param("i", $camera_id);
+    $upCam->execute();
+    */
 }
 
 /* ===================== SUSUN ARRAY $transaction UNTUK TAMPILAN ===================== */
 $order_number   = 'SR-' . $camera_id . '-' . date('YmdHis');
-$transaction_id = 'TXN-' . ($rental_id ?: date('YmdHis')); // kalau ada rental_id, pakai, kalau tidak fallback waktu
+$transaction_id = 'TXN-' . ($rental_id ?: date('YmdHis'));
 $date_time      = date('F d, Y – H:i');
 
 $item_label = trim(($camera['brand'] ?? '') . ' ' . ($camera['name'] ?? ''));
